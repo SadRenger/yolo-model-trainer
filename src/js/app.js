@@ -56,5 +56,15 @@
 
   /* ── Expose for debugging ── */
   window.__app = { store: store, router: router, sidebar: sidebar, toastContainer: toastContainer, modalManager: modalManager, tooltipManager: tooltipManager };
+  // Disable browser autocomplete on all inputs (desktop app, not web)
+  document.querySelectorAll('input').forEach(function(el) { el.autocomplete = 'off'; });
+  // Also catch dynamically created inputs
+  var observer = new MutationObserver(function() {
+    document.querySelectorAll('input:not([autocomplete])').forEach(function(el) {
+      el.setAttribute('autocomplete', 'off');
+    });
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+
   console.log('YOLO Model Trainer initialized');
 })();
