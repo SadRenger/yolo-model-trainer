@@ -134,13 +134,15 @@ def on_train_epoch_end(trainer):
 
 
 def run_training(args) -> dict:
-    from ultralytics import YOLO
-
     task_name = args.task_name or f"train_{time.strftime('%Y%m%d_%H%M%S')}"
     output_dir = Path(args.output_dir) / task_name
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    # Emit immediately — before slow imports (torch/ultralytics take 10-30s)
     emit("T-001", message="训练请求已接收", task_name=task_name)
+    sys.stdout.flush()
+
+    from ultralytics import YOLO
     emit("T-002", output_dir=str(output_dir), message="输出目录已创建")
 
     # ── Phase 1: Pre-launch checks ──
