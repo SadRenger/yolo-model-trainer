@@ -220,32 +220,33 @@
           if (err) reject(err); else resolve(data);
         }
 
-        tauriListen('infer:line', function(payload) {
-          var code = payload.code || '';
-          if (code === 'I-006') {
-            result.total_detections = payload.total_detections || 0;
-            result.inference_time_ms = payload.inference_time_ms;
-            result.detections = payload.detections || [];
-            result.stats = result.stats || {};
-            result.stats.inference_time_ms = payload.inference_time_ms;
-            result.stats.total = payload.total_detections;
-          }
-          if (code === 'I-008') {
-            // Final result ready marker
-          }
-        }).then(function(fn) { unlistens.push(fn); });
-
-        tauriListen('infer:completed', function() { finish(null, result); });
-        tauriListen('infer:error', function(payload) {
-          finish(new Error('推理失败: ' + (payload && payload.stderr || 'exit ' + (payload && payload.exit_code))));
-        });
-
-        tauriInvoke('run_inference', {
-          modelPath: config.modelPath || '',
-          imagePath: config.imagePath || '',
-          conf: config.confidence,
-          iou: config.iou,
-          imgsz: config.imageSize,
+        // Register listeners FIRST, then invoke — avoids race with fast Python scripts
+        Promise.all([
+          tauriListen('infer:line', function(payload) {
+            var code = payload.code || '';
+            if (code === 'I-006') {
+              result.total_detections = payload.total_detections || 0;
+              result.inference_time_ms = payload.inference_time_ms;
+              result.detections = payload.detections || [];
+              result.stats = result.stats || {};
+              result.stats.inference_time_ms = payload.inference_time_ms;
+              result.stats.total = payload.total_detections;
+            }
+          }),
+          tauriListen('infer:completed', function() { finish(null, result); }),
+          tauriListen('infer:error', function(payload) {
+            finish(new Error('推理失败: ' + (payload && payload.stderr || 'exit ' + (payload && payload.exit_code))));
+          })
+        ]).then(function(fns) {
+          unlistens = fns.filter(Boolean);
+          // Now safe to invoke — listeners are registered
+          return tauriInvoke('run_inference', {
+            modelPath: config.modelPath || '',
+            imagePath: config.imagePath || '',
+            conf: config.confidence,
+            iou: config.iou,
+            imgsz: config.imageSize,
+          });
         }).catch(function(err) { finish(err); });
       });
     }
