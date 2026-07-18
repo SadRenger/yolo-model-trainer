@@ -198,13 +198,21 @@ impl ProcessManager {
             None
         };
 
-        // ── Stdout reader (takes ownership of child for wait()) ──
+        // ── Stdout + Stderr concurrent readers (stderr gets its own thread to avoid pipe deadlock) ──
         let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
         let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
         let handle_clone = app_handle.clone();
         let tid = task_id.to_string();
         let scr = script.to_string();
 
+        // Stderr reader thread — must run concurrently to prevent pipe buffer deadlock
+        let stderr_handle = std::thread::spawn(move || {
+            let stderr_reader = BufReader::new(stderr);
+            let lines: Vec<String> = stderr_reader.lines().filter_map(|l| l.ok()).collect();
+            lines
+        });
+
+        // Stdout reader + child wait thread
         std::thread::spawn(move || {
             let reader = BufReader::new(stdout);
             for line in reader.lines() {
@@ -224,10 +232,11 @@ impl ProcessManager {
                 }
             }
 
-            // Read stderr FIRST (stdout reader already consumed by for loop)
-            let stderr_reader = BufReader::new(stderr);
-            let stderr_lines: Vec<String> = stderr_reader.lines().filter_map(|l| l.ok()).collect();
-            let stderr_text = stderr_lines.join("\n");
+            // Wait for stderr thread to finish, then get the output
+            let stderr_text = stderr_handle
+                .join()
+                .unwrap_or_default()
+                .join("\n");
 
             // Process ended — check exit status
             match child.wait() {
@@ -263,7 +272,7 @@ impl ProcessManager {
                 }
             }
 
-            for line in &stderr_lines {
+            for line in stderr_text.lines() {
                 if !line.trim().is_empty() {
                     log::warn!("[{}] stderr: {}", tid, line);
                 }
