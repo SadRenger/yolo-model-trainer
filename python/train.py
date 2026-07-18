@@ -138,12 +138,16 @@ def run_training(args) -> dict:
     output_dir = Path(args.output_dir) / task_name
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Emit immediately — before slow imports (torch/ultralytics take 10-30s)
-    emit("T-001", message="训练请求已接收", task_name=task_name)
+    # Emit progress during slow imports (torch + ultralytics take 10-20s first time)
+    emit("T-001", message="正在初始化训练引擎…", task_name=task_name)
+    sys.stdout.flush()
+
+    import torch
+    emit("T-001", message="PyTorch 已加载，正在加载 Ultralytics…")
     sys.stdout.flush()
 
     from ultralytics import YOLO
-    emit("T-002", output_dir=str(output_dir), message="依赖导入完成（torch + ultralytics）")
+    emit("T-002", output_dir=str(output_dir), message="训练引擎就绪，开始预检")
     sys.stdout.flush()
 
     # ── Phase 1: Pre-launch checks ──

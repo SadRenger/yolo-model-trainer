@@ -67,8 +67,12 @@
           if (!payload) return;
           var code = payload.code || '';
 
-          // Phase 1: pre-launch → Phase 2: training started
-          if (code === 'T-101') {
+          // Show import/training progress in log
+          if (code === 'T-001') {
+            updateTrainingLog(trainingView, payload.message || '初始化中...');
+          } else if (code === 'T-002') {
+            updateTrainingLog(trainingView, payload.message || '引擎就绪');
+          } else if (code === 'T-101') {
             // First epoch started
           } else if (code === 'T-104' && payload.type === 'progress') {
             updateTrainingMetrics(trainingView, payload.epoch, payload.total_epochs);
@@ -601,6 +605,16 @@
     var label = trainingView.querySelector('#training-progress-label');
     if (label) label.textContent = '0 / 100 epochs · 0% · 估算剩余: --';
     App.bus.dispatchEvent(new CustomEvent(App.EVENTS.SIDEBAR_STATUS, { detail: { status: 'ready' } }));
+  }
+
+  function updateTrainingLog(trainingView, msg) {
+    var log = trainingView.querySelector('#training-log');
+    if (!log) return;
+    var line = document.createElement('div');
+    line.className = 'log-terminal__line';
+    line.innerHTML = '<span class="log-terminal__line--time">' + new Date().toLocaleTimeString() + '</span> ' + msg;
+    log.appendChild(line);
+    log.scrollTop = log.scrollHeight;
   }
 
   function updateTrainingMetrics(trainingView, epoch, totalEpochs) {
