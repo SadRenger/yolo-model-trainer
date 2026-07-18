@@ -17,23 +17,25 @@
 
 ## 当前阶段
 
-阶段二：Python 引擎（Week 2–4）—— 待开工
+阶段二：Python 引擎（Week 2–4）—— 脚本已完成，待联调验证
 
 ## 上次做到
 
 - 全部 8 份项目文档已定稿，基线已冻结（2026-07-18）
-- **阶段一全部 5 个子任务完成并通过端到端验证**：
-  - 1.1 Tauri 2.x 骨架 (cargo build 通过)
-  - 1.2 前端基础结构 (侧边栏 + 4 页面 + 全局组件，cargo tauri dev 验证)
-  - 1.3 嵌入 Python 3.13 (process_manager + find_python)
-  - 1.4 Rust↔Python IPC (stdin/stdout JSONL 管道，已验证)
-  - 1.5 Rust↔前端事件 (Tauri Commands + Events，已验证)
-- **端到端链路验证通过**：设置页 🔄 → invoke → Rust spawn → Python env_check.py → JSONL stdout → Event → 前端显示真实 GPU/磁盘数据
+- **阶段一全部完成并验证通过**
+- **阶段二 Python 脚本已全部创建**：
+  - dataset_check.py (D-001~D-007E, 15 codes)
+  - model_check.py (M-001~M-004E, 9 codes)
+  - infer.py (I-001~I-007E, 15 codes)
+  - train.py (T-001~T-308, 43 codes: 训练+暂停+恢复+停止+报告)
+- Rust commands 已接线（check_dataset, check_model, run_inference）
+- 前端 api.js 已接线（全部 4 个 API 调用真实 Rust→Python 链路）
 
-## 下一步（阶段二：Python 引擎）
+## 下一步
 
-1. Python 脚本补充：dataset_check.py, model_check.py, train.py, infer.py
-2. 训练进度实时推送：train:line Events → 前端进度条/日志/指标表联动
+1. cargo tauri dev 联调验证：新建训练页的校验数据集/校验模型功能
+2. 真实训练验证：用小数据集跑通完整 train.py 流程
+3. 训练进度前端实时更新（train:line Events → 进度条/日志/指标表）
 
 ## 已知问题
 

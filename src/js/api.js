@@ -198,7 +198,43 @@
 
     runInference: function(config) {
       if (!HAS_TAURI) { return delay(800).then(function() { return MOCK_INFERENCE; }); }
-      return delay(800).then(function() { return MOCK_INFERENCE; }); // TODO
+
+      config = config || {};
+      return new Promise(function(resolve, reject) {
+        var result = { detections: [], stats: {} };
+        var unlistens = [];
+        var done = false;
+
+        function finish(err, data) {
+          if (done) return; done = true;
+          unlistens.forEach(function(fn) { try { fn(); } catch(e) {} });
+          if (err) reject(err); else resolve(data);
+        }
+
+        tauriListen('infer:line', function(payload) {
+          var code = payload.code || '';
+          if (code === 'I-006') {
+            result.total_detections = payload.total_detections;
+            result.inference_time_ms = payload.inference_time_ms;
+          }
+          if (code === 'I-008') {
+            // Final result ready
+          }
+        }).then(function(fn) { unlistens.push(fn); });
+
+        tauriListen('infer:completed', function() { finish(null, result); });
+        tauriListen('infer:error', function(payload) {
+          finish(new Error('推理失败: ' + (payload && payload.stderr || 'exit ' + (payload && payload.exit_code))));
+        });
+
+        tauriInvoke('run_inference', {
+          modelPath: config.modelPath || '',
+          imagePath: config.imagePath || '',
+          conf: config.confidence,
+          iou: config.iou,
+          imgsz: config.imageSize,
+        }).catch(function(err) { finish(err); });
+      });
     }
   };
 
