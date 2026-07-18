@@ -13,6 +13,7 @@
   };
   var _trainingCache = {
     state: 'form',        // 'form' | 'training' | 'complete'
+    taskId: null,         // Rust task_id for stop/pause
     epoch: 0,
     totalEpochs: 100,
     metrics: [],          // [{epoch, loss, mAP50, mAP50_95}]
@@ -51,34 +52,53 @@
       completeView.style.display = 'none';
       page.appendChild(completeView);
 
-      // ── Train:line event listener (persistent, for real Tauri training) ──
+      // ── Train event listeners (persistent, for real Tauri training) ──
       var _trainUnlistens = [];
       function listenTrainEvents() {
         if (!window.__TAURI_INTERNALS__ || !App.tauri) return;
+
+        // Per-line JSONL events (code-based matching)
         App.tauri.listen('train:line', function(event) {
           var payload = event.payload;
           if (typeof payload === 'string') { try { payload = JSON.parse(payload); } catch(_) {} }
           if (!payload) return;
+          var code = payload.code || '';
 
-          var ptype = payload.type;
-          if (ptype === 'started') {
-            // Training confirmed started
-          } else if (ptype === 'progress') {
+          // Phase 1: pre-launch → Phase 2: training started
+          if (code === 'T-101') {
+            // First epoch started
+          } else if (code === 'T-104' && payload.type === 'progress') {
             updateTrainingMetrics(trainingView, payload.epoch, payload.total_epochs);
-          } else if (ptype === 'completed') {
-            showCompleteState(page, formView, trainingView, completeView);
-            App.bus.dispatchEvent(new CustomEvent(App.EVENTS.SIDEBAR_STATUS, { detail: { status: 'ready' } }));
+          } else if (code === 'T-105' || code === 'T-106' || code === 'T-107') {
             App.bus.dispatchEvent(new CustomEvent(App.EVENTS.TOAST_SHOW, {
-              detail: { type: 'success', title: '训练完成！', message: 'mAP50: ' + (payload.best_mAP50 || '--') + ' · 历时 ' + Math.round((payload.total_time || 0) / 60) + 'm' }
-            }));
-          } else if (ptype === 'stopped') {
-            resetToForm(page, formView, trainingView, completeView);
-            App.bus.dispatchEvent(new CustomEvent(App.EVENTS.SIDEBAR_STATUS, { detail: { status: 'ready' } }));
-          } else if (ptype === 'error') {
-            App.bus.dispatchEvent(new CustomEvent(App.EVENTS.TOAST_SHOW, {
-              detail: { type: 'error', title: '训练异常', message: payload.message || '未知错误' }
+              detail: { type: 'info', title: '训练进度', message: '达到 ' + (payload.milestone || '') }
             }));
           }
+        }).then(function(fn) { _trainUnlistens.push(fn); });
+
+        // Process completion (success)
+        App.tauri.listen('train:completed', function(event) {
+          var payload = event.payload;
+          if (typeof payload === 'string') { try { payload = JSON.parse(payload); } catch(_) {} }
+          if (payload && payload.exit_code === 0) {
+            showCompleteState(page, formView, trainingView, completeView);
+            _trainingCache.state = 'complete';
+            App.bus.dispatchEvent(new CustomEvent(App.EVENTS.SIDEBAR_STATUS, { detail: { status: 'ready' } }));
+            App.bus.dispatchEvent(new CustomEvent(App.EVENTS.TOAST_SHOW, {
+              detail: { type: 'success', title: '训练完成！', message: '查看结果摘要' }
+            }));
+          }
+        }).then(function(fn) { _trainUnlistens.push(fn); });
+
+        // Process error/crash
+        App.tauri.listen('train:error', function(event) {
+          var payload = event.payload;
+          if (typeof payload === 'string') { try { payload = JSON.parse(payload); } catch(_) {} }
+          resetToForm(page, formView, trainingView, completeView);
+          App.bus.dispatchEvent(new CustomEvent(App.EVENTS.SIDEBAR_STATUS, { detail: { status: 'ready' } }));
+          App.bus.dispatchEvent(new CustomEvent(App.EVENTS.TOAST_SHOW, {
+            detail: { type: 'error', title: '训练异常退出', message: 'exit code: ' + ((payload && payload.exit_code) || '?') }
+          }));
         }).then(function(fn) { _trainUnlistens.push(fn); });
       }
       listenTrainEvents();
@@ -92,7 +112,7 @@
           // Real training via Rust → Python
           var config = readFormConfig(formView);
           App.api.startTraining(config).then(function(result) {
-            // Training spawned — progress will come via train:line events
+            _trainingCache.taskId = result.task_id; // store for stop button
           }).catch(function(err) {
             App.bus.dispatchEvent(new CustomEvent(App.EVENTS.TOAST_SHOW, {
               detail: { type: 'error', title: '启动训练失败', message: err.message || String(err) }
@@ -121,8 +141,8 @@
             if (_trainingCache.intervalId) { clearInterval(_trainingCache.intervalId); _trainingCache.intervalId = null; }
             // Real stop via Rust if available
             var hasTauri = !!(window.__TAURI_INTERNALS__ && App.tauri);
-            if (hasTauri) {
-              App.tauri.invoke('stop_training', { taskId: 'train-current' }).catch(function(){});
+            if (hasTauri && _trainingCache.taskId) {
+              App.tauri.invoke('stop_training', { taskId: _trainingCache.taskId }).catch(function(){});
             }
             resetToForm(page, formView, trainingView, completeView);
             App.bus.dispatchEvent(new CustomEvent(App.EVENTS.SIDEBAR_STATUS, { detail: { status: 'ready' } }));

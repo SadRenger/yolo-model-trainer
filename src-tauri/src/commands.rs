@@ -168,6 +168,7 @@ pub fn start_training(
         .as_millis());
 
     // Serialize config as CLI args: --key value
+    // Convert snake_case → kebab-case for Python argparse compatibility
     let mut args: Vec<String> = Vec::new();
     if let Some(obj) = config.as_object() {
         for (k, v) in obj {
@@ -175,7 +176,8 @@ pub fn start_training(
                 serde_json::Value::String(s) => s.clone(),
                 other => other.to_string(),
             };
-            args.push(format!("--{}", k));
+            let flag = k.replace('_', "-");
+            args.push(format!("--{}", flag));
             args.push(val_str);
         }
     }
