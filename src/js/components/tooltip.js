@@ -1,100 +1,71 @@
 /* ═══════════════════════════════════════════════════
-   YOLO Model Trainer — Tooltip Manager
-   声明式: data-tooltip="text" 属性
-   编程式: createTooltip(triggerElement, contentHTML)
+   YOLO Model Trainer — Tooltip Manager (global namespace)
    ═══════════════════════════════════════════════════ */
+(function() {
+  var App = window.App;
+  App.components = App.components || {};
 
-export class TooltipManager {
-  constructor() {
+  App.components.TooltipManager = function() {
     this.tooltip = null;
     this.currentTrigger = null;
     this._initDeclarative();
-  }
+  };
 
-  /* ── Declarative: data-tooltip attribute ── */
-
-  _initDeclarative() {
-    document.addEventListener('mouseenter', (e) => {
-      const trigger = e.target.closest('[data-tooltip]');
+  App.components.TooltipManager.prototype._initDeclarative = function() {
+    var self = this;
+    document.addEventListener('mouseenter', function(e) {
+      var trigger = e.target.closest('[data-tooltip]');
       if (!trigger) return;
-      const text = trigger.getAttribute('data-tooltip');
-      if (text) {
-        this.show(trigger, text);
-      }
-    }, true); // capturing to work with dynamically added elements
-
-    document.addEventListener('mouseleave', (e) => {
-      const trigger = e.target.closest('[data-tooltip]');
-      if (!trigger) return;
-      this.hide();
+      var text = trigger.getAttribute('data-tooltip');
+      if (text) self.show(trigger, text);
     }, true);
-  }
 
-  /* ── Programmatic API ── */
+    document.addEventListener('mouseleave', function(e) {
+      var trigger = e.target.closest('[data-tooltip]');
+      if (!trigger) return;
+      self.hide();
+    }, true);
+  };
 
-  /**
-   * Show a tooltip near a trigger element.
-   * @param {HTMLElement} trigger
-   * @param {string} contentHTML
-   */
-  show(trigger, contentHTML) {
-    // Don't re-create if same trigger
+  App.components.TooltipManager.prototype.show = function(trigger, contentHTML) {
     if (this.currentTrigger === trigger && this.tooltip) return;
-
     this.hide();
 
-    const tooltip = document.createElement('div');
+    var tooltip = document.createElement('div');
     tooltip.className = 'tooltip';
     tooltip.innerHTML = contentHTML;
     document.body.appendChild(tooltip);
 
-    // Position relative to trigger
-    const rect = trigger.getBoundingClientRect();
-    const ttRect = tooltip.getBoundingClientRect();
-
-    let top = rect.bottom + 6;
-    let left = rect.left + rect.width / 2 - ttRect.width / 2;
-
-    // Flip if off-screen
+    var rect = trigger.getBoundingClientRect();
+    var ttRect = tooltip.getBoundingClientRect();
+    var top = rect.bottom + 6;
+    var left = rect.left + rect.width / 2 - ttRect.width / 2;
     if (left < 8) left = 8;
-    if (left + ttRect.width > window.innerWidth - 8) {
-      left = window.innerWidth - ttRect.width - 8;
-    }
-    if (top + ttRect.height > window.innerHeight - 8) {
-      top = rect.top - ttRect.height - 6; // show above
-    }
+    if (left + ttRect.width > window.innerWidth - 8) left = window.innerWidth - ttRect.width - 8;
+    if (top + ttRect.height > window.innerHeight - 8) top = rect.top - ttRect.height - 6;
 
-    tooltip.style.top = `${top}px`;
-    tooltip.style.left = `${left}px`;
+    tooltip.style.top = top + 'px';
+    tooltip.style.left = left + 'px';
 
-    // Arrow
-    const arrow = document.createElement('div');
+    var arrow = document.createElement('div');
     arrow.className = 'tooltip__arrow';
-    const arrowLeft = rect.left + rect.width / 2 - left;
-    arrow.style.left = `${Math.max(8, Math.min(arrowLeft, ttRect.width - 8))}px`;
+    var arrowLeft = rect.left + rect.width / 2 - left;
+    arrow.style.left = Math.max(8, Math.min(arrowLeft, ttRect.width - 8)) + 'px';
     tooltip.appendChild(arrow);
 
     this.tooltip = tooltip;
     this.currentTrigger = trigger;
+    var self = this;
+    requestAnimationFrame(function() { tooltip.classList.add('tooltip--visible'); });
+  };
 
-    // Show animation
-    requestAnimationFrame(() => {
-      tooltip.classList.add('tooltip--visible');
-    });
-  }
-
-  /**
-   * Hide the current tooltip.
-   */
-  hide() {
+  App.components.TooltipManager.prototype.hide = function() {
     if (this.tooltip) {
       this.tooltip.classList.remove('tooltip--visible');
-      const tt = this.tooltip;
-      setTimeout(() => {
-        if (tt.parentNode) tt.remove();
-      }, 150);
+      var tt = this.tooltip;
+      setTimeout(function() { if (tt.parentNode) tt.remove(); }, 150);
       this.tooltip = null;
     }
     this.currentTrigger = null;
-  }
-}
+  };
+})();

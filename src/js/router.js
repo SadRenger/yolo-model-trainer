@@ -1,162 +1,108 @@
 /* ═══════════════════════════════════════════════════
-   YOLO Model Trainer — Hash Router
-   静态导入页面模块 + 页面注册表，管理 mount/destroy 生命周期
+   YOLO Model Trainer — Hash Router (global namespace)
+   页面注册表 (static lookup) + mount/destroy 生命周期
    ═══════════════════════════════════════════════════ */
+(function() {
+  var App = window.App;
 
-import { bus, EVENTS } from './events.js';
+  var ROUTES = [
+    { hash: '#/new-training', page: 'newTraining', title: '新建训练任务' },
+    { hash: '#/history',      page: 'trainingHistory', title: '训练历史' },
+    { hash: '#/inference',    page: 'inference', title: '推理测试' },
+    { hash: '#/settings',     page: 'settings', title: '设置' },
+  ];
+  var DEFAULT_HASH = '#/new-training';
 
-// Static imports — required for Tauri custom protocol compatibility
-import * as PageNewTraining from './pages/new-training.js';
-import * as PageTrainingHistory from './pages/training-history.js';
-import * as PageInference from './pages/inference.js';
-import * as PageSettings from './pages/settings.js';
-
-/** Static page registry: name → module */
-const PAGE_REGISTRY = {
-  'new-training': PageNewTraining,
-  'training-history': PageTrainingHistory,
-  'inference': PageInference,
-  'settings': PageSettings,
-};
-
-/**
- * Route table: hash → page module name, title
- * @type {Array<{ hash: string, page: string, title: string }>}
- */
-const ROUTES = [
-  { hash: '#/new-training', page: 'new-training', title: '新建训练任务' },
-  { hash: '#/history',      page: 'training-history', title: '训练历史' },
-  { hash: '#/inference',    page: 'inference', title: '推理测试' },
-  { hash: '#/settings',     page: 'settings', title: '设置' },
-];
-
-const DEFAULT_HASH = '#/new-training';
-
-/**
- * Parse query-string-like params from a hash fragment.
- * e.g. "#/new-training?resume=task-001" → { resume: 'task-001' }
- * @param {string} hash
- * @returns {{ path: string, params: Record<string, string> }}
- */
-function parseHash(hash) {
-  const [path, query] = hash.split('?');
-  const params = {};
-  if (query) {
-    query.split('&').forEach(pair => {
-      const [k, v] = pair.split('=');
-      if (k) params[decodeURIComponent(k)] = decodeURIComponent(v || '');
-    });
+  function parseHash(hash) {
+    var parts = hash.split('?');
+    var path = parts[0];
+    var params = {};
+    if (parts[1]) {
+      parts[1].split('&').forEach(function(pair) {
+        var kv = pair.split('=');
+        if (kv[0]) params[decodeURIComponent(kv[0])] = decodeURIComponent(kv[1] || '');
+      });
+    }
+    return { path: path, params: params };
   }
-  return { path, params };
-}
 
-export class Router {
-  /**
-   * @param {HTMLElement} container — the #content-area element
-   */
-  constructor(container) {
+  App.Router = function(container) {
     this.container = container;
-    this.currentPage = null;
     this.currentPageName = null;
-    this.currentDestroy = null; // cleanup function from mounted page
-  }
+    this.currentDestroy = null;
+  };
 
-  /**
-   * Start listening for hash changes and handle the initial load.
-   */
-  init() {
-    window.addEventListener('hashchange', () => this._handleRoute());
+  App.Router.prototype.init = function() {
+    var self = this;
 
-    // Listen for programmatic NAVIGATE events (from sidebar, etc.)
-    bus.addEventListener(EVENTS.NAVIGATE, (e) => {
-      this.navigate(e.detail.hash, e.detail.params);
+    window.addEventListener('hashchange', function() { self._handleRoute(); });
+
+    App.bus.addEventListener(App.EVENTS.NAVIGATE, function(e) {
+      self.navigate(e.detail.hash, e.detail.params);
     });
 
-    // Handle initial load
     if (!window.location.hash) {
       window.location.hash = DEFAULT_HASH;
     } else {
       this._handleRoute();
     }
-  }
+  };
 
-  /**
-   * Programmatic navigation.
-   * @param {string} hash - e.g. "#/settings" or "#/new-training?resume=task-001"
-   * @param {object} [params] - additional params merged into the URL query string
-   */
-  navigate(hash, params = {}) {
-    const { path, params: existingParams } = parseHash(hash);
-    const merged = { ...existingParams, ...params };
-    const queryStr = Object.entries(merged)
-      .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
-      .join('&');
-    window.location.hash = queryStr ? `${path}?${queryStr}` : path;
-  }
+  App.Router.prototype.navigate = function(hash, params) {
+    params = params || {};
+    var parsed = parseHash(hash);
+    var merged = Object.assign({}, parsed.params, params);
+    var queryStr = Object.keys(merged).map(function(k) {
+      return encodeURIComponent(k) + '=' + encodeURIComponent(merged[k]);
+    }).join('&');
+    window.location.hash = queryStr ? parsed.path + '?' + queryStr : parsed.path;
+  };
 
-  /**
-   * Get the current route info.
-   * @returns {{ hash: string, page: string, title: string } | null}
-   */
-  getCurrentRoute() {
-    const { path } = parseHash(window.location.hash);
-    return ROUTES.find(r => r.hash === path) || null;
-  }
+  App.Router.prototype.getCurrentRoute = function() {
+    var parsed = parseHash(window.location.hash);
+    return ROUTES.find(function(r) { return r.hash === parsed.path; }) || null;
+  };
 
-  /**
-   * Get the current query params.
-   * @returns {Record<string, string>}
-   */
-  getParams() {
-    const { params } = parseHash(window.location.hash);
-    return params;
-  }
+  App.Router.prototype.getParams = function() {
+    return parseHash(window.location.hash).params;
+  };
 
-  /* ── Private ── */
-
-  async _handleRoute() {
-    const { path, params } = parseHash(window.location.hash);
-    const route = ROUTES.find(r => r.hash === path);
+  App.Router.prototype._handleRoute = function() {
+    var self = this;
+    var parsed = parseHash(window.location.hash);
+    var route = ROUTES.find(function(r) { return r.hash === parsed.path; });
 
     if (!route) {
-      // Unknown route → redirect to default
       window.location.hash = DEFAULT_HASH;
       return;
     }
 
     // Destroy previous page
     if (this.currentDestroy) {
-      try { this.currentDestroy(); } catch (e) { console.error('Error destroying page:', e); }
+      try { this.currentDestroy(); } catch(e) { /* ignore */ }
       this.currentDestroy = null;
     }
 
-    // Clear container
     this.container.innerHTML = '';
-
-    // Show loading
     this.container.innerHTML = '<div class="empty-state"><div class="spinner"></div></div>';
 
-    // Static lookup — avoids dynamic import() issues in Tauri custom protocol
     try {
-      const module = PAGE_REGISTRY[route.page];
-      if (!module) throw new Error(`Unknown page: ${route.page}`);
-      const cleanup = await module.mount(this.container, params);
-      if (typeof cleanup === 'function') {
-        this.currentDestroy = cleanup;
-      }
+      var module = App.pages[route.page];
+      if (!module) throw new Error('Unknown page: ' + route.page);
+      var cleanup = module.mount(this.container, parsed.params);
+      if (typeof cleanup === 'function') this.currentDestroy = cleanup;
       this.currentPageName = route.page;
 
-      bus.dispatchEvent(new CustomEvent(EVENTS.PAGE_MOUNTED, {
+      App.bus.dispatchEvent(new CustomEvent(App.EVENTS.PAGE_MOUNTED, {
         detail: { page: route.page, title: route.title }
       }));
-    } catch (err) {
-      console.error(`Failed to load page "${route.page}":`, err);
-      this.container.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-state__icon">⚠️</div>
-          <div class="empty-state__text">页面加载失败</div>
-          <p style="color:var(--text-muted)">${err.message}</p>
-        </div>`;
+    } catch(err) {
+      this.container.innerHTML =
+        '<div class="empty-state">' +
+          '<div class="empty-state__icon">⚠️</div>' +
+          '<div class="empty-state__text">页面加载失败</div>' +
+          '<p style="color:var(--text-muted)">' + err.message + '</p>' +
+        '</div>';
     }
-  }
-}
+  };
+})();

@@ -1,66 +1,29 @@
 /* ═══════════════════════════════════════════════════
-   YOLO Model Trainer — Observable State Store
+   YOLO Model Trainer — Observable State Store (global namespace)
    ═══════════════════════════════════════════════════ */
+(function() {
+  var App = window.App;
 
-import { bus, EVENTS } from './events.js';
+  App.createStore = function(initialState) {
+    var state = Object.assign({}, initialState);
 
-/**
- * Creates a simple observable state store.
- * set() → dispatches STATE_CHANGED on the shared bus.
- * subscribe() → listen for changes to a specific key.
- */
-export function createStore(initialState = {}) {
-  /** @type {Record<string, any>} */
-  let state = { ...initialState };
-
-  const store = {
-    /**
-     * Get a top-level key's value.
-     * @param {string} key
-     * @returns {any}
-     */
-    get(key) {
-      return state[key];
-    },
-
-    /**
-     * Set a top-level key and dispatch STATE_CHANGED.
-     * Does nothing if value is identical (===).
-     * @param {string} key
-     * @param {any} value
-     */
-    set(key, value) {
-      if (state[key] === value) return;
-      state[key] = value;
-      bus.dispatchEvent(new CustomEvent(EVENTS.STATE_CHANGED, {
-        detail: { key, value }
-      }));
-    },
-
-    /**
-     * Subscribe to changes on a specific key.
-     * @param {string} key
-     * @param {(value: any) => void} callback
-     * @returns {() => void} unsubscribe function
-     */
-    subscribe(key, callback) {
-      const handler = (e) => {
-        if (e.detail.key === key) {
-          callback(e.detail.value);
-        }
-      };
-      bus.addEventListener(EVENTS.STATE_CHANGED, handler);
-      return () => bus.removeEventListener(EVENTS.STATE_CHANGED, handler);
-    },
-
-    /**
-     * Return a snapshot of the full state (shallow copy).
-     * @returns {Record<string, any>}
-     */
-    getAll() {
-      return { ...state };
-    }
+    return {
+      get: function(key) { return state[key]; },
+      set: function(key, value) {
+        if (state[key] === value) return;
+        state[key] = value;
+        App.bus.dispatchEvent(new CustomEvent(App.EVENTS.STATE_CHANGED, {
+          detail: { key: key, value: value }
+        }));
+      },
+      subscribe: function(key, callback) {
+        var handler = function(e) {
+          if (e.detail.key === key) callback(e.detail.value);
+        };
+        App.bus.addEventListener(App.EVENTS.STATE_CHANGED, handler);
+        return function() { App.bus.removeEventListener(App.EVENTS.STATE_CHANGED, handler); };
+      },
+      getAll: function() { return Object.assign({}, state); }
+    };
   };
-
-  return store;
-}
+})();

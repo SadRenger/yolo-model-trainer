@@ -1,85 +1,66 @@
 /* ═══════════════════════════════════════════════════
-   YOLO Model Trainer — Application Bootstrap
+   YOLO Model Trainer — Application Bootstrap (global namespace)
    ═══════════════════════════════════════════════════ */
+(function() {
+  var App = window.App;
 
-import { Router } from './router.js';
-import { createStore } from './state.js';
-import { Sidebar } from './components/sidebar.js';
-import { ToastContainer } from './components/toast.js';
-import { ModalManager } from './components/modal.js';
-import { TooltipManager } from './components/tooltip.js';
-import { bus, EVENTS } from './events.js';
-import * as api from './api.js';
-
-/* ── Global state ── */
-const initialState = {
-  currentPage: 'new-training',
-  routeParams: {},
-  sidebarStatus: 'ready',      // 'ready' | 'training' | 'error'
-  sidebarStatusDetail: '',      // task name or error count
-  diskSpace: { total: 0, free: 0 },
-};
-
-const store = createStore(initialState);
-
-/* ── Instantiate singletons ── */
-const sidebar = new Sidebar(document.getElementById('sidebar-container'));
-const router = new Router(document.getElementById('content-area'));
-const toastContainer = new ToastContainer(document.getElementById('toast-container'));
-const modalManager = new ModalManager(document.getElementById('modal-root'));
-const tooltipManager = new TooltipManager();
-
-/* ── Wire event listeners ── */
-
-// Sidebar NAVIGATE → router
-bus.addEventListener(EVENTS.NAVIGATE, (e) => {
-  router.navigate(e.detail.hash, e.detail.params);
-});
-
-// Page mounted → update sidebar active + store
-bus.addEventListener(EVENTS.PAGE_MOUNTED, (e) => {
-  store.set('currentPage', e.detail.page);
-  sidebar.setActiveByPage(e.detail.page);
-});
-
-// Sidebar status updates
-bus.addEventListener(EVENTS.SIDEBAR_STATUS, (e) => {
-  const { status, detail } = e.detail;
-  store.set('sidebarStatus', status);
-  sidebar.setStatus(status, detail || '');
-});
-
-// Toast
-bus.addEventListener(EVENTS.TOAST_SHOW, (e) => {
-  const { type, title, message, duration } = e.detail;
-  toastContainer.show(type, title, message, duration);
-});
-
-// Modal
-bus.addEventListener(EVENTS.MODAL_OPEN, (e) => {
-  modalManager.show(e.detail);
-});
-
-/* ── Initialize ── */
-
-// Load initial disk space (mock)
-api.checkEnvironment().then(env => {
-  store.set('diskSpace', {
-    total: parseFloat(env.disk.system_free) + 100, // rough mock
-    free: parseFloat(env.disk.system_free),
+  /* ── Global state ── */
+  var store = App.createStore({
+    currentPage: 'new-training',
+    routeParams: {},
+    sidebarStatus: 'ready',
+    sidebarStatusDetail: '',
+    diskSpace: { total: 0, free: 0 },
   });
-  sidebar.setDiskSpace(env.disk.system_free + ' GB');
-});
 
-// Start router
-router.init();
+  /* ── Instantiate singletons ── */
+  var sidebar = new App.components.Sidebar(document.getElementById('sidebar-container'));
+  var router = new App.Router(document.getElementById('content-area'));
+  var toastContainer = new App.components.ToastContainer(document.getElementById('toast-container'));
+  var modalManager = new App.components.ModalManager(document.getElementById('modal-root'));
+  var tooltipManager = new App.components.TooltipManager();
 
-// Set initial sidebar active
-sidebar.setActiveByPage(store.get('currentPage'));
+  // Store modal manager reference for pages to use
+  App._modalManager = modalManager;
 
-/* ── Expose for debugging ── */
-if (typeof window !== 'undefined') {
-  window.__app = { store, router, sidebar, toastContainer, modalManager, tooltipManager, api, bus, EVENTS };
-}
+  /* ── Wire event listeners ── */
 
-console.log('YOLO Model Trainer — Frontend shell initialized');
+  App.bus.addEventListener(App.EVENTS.NAVIGATE, function(e) {
+    router.navigate(e.detail.hash, e.detail.params);
+  });
+
+  App.bus.addEventListener(App.EVENTS.PAGE_MOUNTED, function(e) {
+    store.set('currentPage', e.detail.page);
+    sidebar.setActiveByPage(e.detail.page);
+  });
+
+  App.bus.addEventListener(App.EVENTS.SIDEBAR_STATUS, function(e) {
+    store.set('sidebarStatus', e.detail.status);
+    sidebar.setStatus(e.detail.status, e.detail.detail || '');
+  });
+
+  App.bus.addEventListener(App.EVENTS.TOAST_SHOW, function(e) {
+    toastContainer.show(e.detail.type, e.detail.title, e.detail.message, e.detail.duration);
+  });
+
+  App.bus.addEventListener(App.EVENTS.MODAL_OPEN, function(e) {
+    modalManager.show(e.detail);
+  });
+
+  /* ── Initialize ── */
+
+  App.api.checkEnvironment().then(function(env) {
+    sidebar.setDiskSpace(env.disk.system_free + ' GB');
+  });
+
+  router.init();
+  sidebar.setActiveByPage(store.get('currentPage'));
+
+  /* ── Expose for debugging ── */
+  window.__app = { store: store, router: router, sidebar: sidebar, toastContainer: toastContainer, modalManager: modalManager, tooltipManager: tooltipManager };
+
+  // Clear the inline test content
+  var contentArea = document.getElementById('content-area');
+  // Router already replaced it, but just in case
+  console.log('YOLO Model Trainer initialized');
+})();
