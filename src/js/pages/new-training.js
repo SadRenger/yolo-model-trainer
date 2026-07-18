@@ -98,6 +98,13 @@
         }));
       });
 
+      // Dual validation locks — both must pass to enable Start Training
+      var _dsValid = false;
+      var _mdValid = false;
+      function updateStartButton() {
+        formView.querySelector('#btn-start-training').disabled = !(_dsValid && _mdValid);
+      }
+
       // Browse buttons — open native file dialogs
       formView.querySelector('#btn-browse-dataset').addEventListener('click', function() {
         if (!window.__TAURI_INTERNALS__ || !App.tauri) return;
@@ -128,14 +135,19 @@
           if (result.valid) {
             resultEl.className = 'valid-state valid-state--pass';
             resultEl.innerHTML = '✅ 校验通过 · ' + (result.image_count || 0) + ' 张图片 · ' + (result.class_count || 0) + ' 个类别';
-            formView.querySelector('#btn-start-training').disabled = false;
+            _dsValid = true;
+            updateStartButton();
             formView.querySelector('#btn-preview-dataset').style.display = '';
           } else {
+            _dsValid = false;
+            updateStartButton();
             resultEl.className = 'valid-state valid-state--fail';
             var errors = (result.errors || []).map(function(e) { return e.message; }).join('；');
             resultEl.innerHTML = '❌ 校验失败：' + (errors || '数据集格式不正确');
           }
         }).catch(function(err) {
+          _dsValid = false;
+          updateStartButton();
           resultEl.className = 'valid-state valid-state--fail';
           resultEl.innerHTML = '❌ 校验失败：' + (err.message || err);
         });
@@ -157,11 +169,17 @@
           if (result.valid) {
             resultEl.className = 'valid-state valid-state--pass';
             resultEl.innerHTML = '✅ ' + (result.architecture || '模型') + ' · ' + (result.param_count || '?') + ' 参数 · ' + (result.file_size || '?');
+            _mdValid = true;
+            updateStartButton();
           } else {
+            _mdValid = false;
+            updateStartButton();
             resultEl.className = 'valid-state valid-state--fail';
             resultEl.innerHTML = '❌ 该文件不是有效的 YOLO 模型文件';
           }
         }).catch(function(err) {
+          _mdValid = false;
+          updateStartButton();
           resultEl.className = 'valid-state valid-state--fail';
           resultEl.innerHTML = '❌ 校验失败：' + (err.message || err);
         });
