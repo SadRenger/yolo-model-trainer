@@ -30,8 +30,6 @@
   App.bus.addEventListener(App.EVENTS.PAGE_MOUNTED, function(e) {
     store.set('currentPage', e.detail.page);
     sidebar.setActiveByPage(e.detail.page);
-    // Diagnostic
-    toastContainer.show('info', '页面切换', e.detail.page + ' → active: ' + sidebar.activeHash);
   });
 
   App.bus.addEventListener(App.EVENTS.SIDEBAR_STATUS, function(e) {
