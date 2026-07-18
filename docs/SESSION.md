@@ -21,16 +21,18 @@
 
 ## 上次做到
 
-- 全部 8 份项目文档已定稿（路由表、需求、计划、设计风格、UI 模型、报告模型、测试计划、状态码）
-- 文档增强完成（SESSION.md、ADR 决策记录、状态码生命周期、测试自动化集成、affects 元数据）
+- 全部 8 份项目文档已定稿
+- 环境检查全部通过（Rust 1.97.1 / Node v24.16.0 / Python 3.13.2 / CUDA 12.4 / Tauri CLI 2.11.4 / VS Build Tools 2026）
+- 基线已冻结（2026-07-18）：需求 🔒 硬冻结，设计风格/UI 模型 🔐 软冻结
+- Git 已同步 github.com:SadRenger/yolo-model-trainer
+- **Tauri 2.x 项目骨架已初始化**：`cargo build` 通过（424 crates），`cargo tauri dev` 可启动
 
 ## 下一步
 
-1. 初始化 Tauri 2.x 项目骨架（`cargo tauri init`）
-2. 搭建前端基础结构（侧边栏导航框架 + 4 个页面路由）
-3. 嵌入 Python 3.13 运行时
-4. 建立 Rust ↔ Python IPC 通信
-5. 建立 Rust ↔ 前端事件通信
+1. 搭建前端基础结构（侧边栏导航框架 + 4 个页面路由）← 当前任务
+2. 嵌入 Python 3.13 运行时
+3. 建立 Rust ↔ Python IPC 通信
+4. 建立 Rust ↔ 前端事件通信
 
 ## 已知问题
 
@@ -44,13 +46,20 @@
 
 | 检查项 | 状态 | 备注 |
 |---|---|---|
-| Rust | 待检查 | 运行 `rustup show active-toolchain` |
-| Node.js | 待检查 | 运行 `node --version` |
-| Python | 待检查 | 运行 `python --version` |
-| 虚拟环境 | 待创建 | 路径：项目根目录下 `venv\`（相对约定，见路由表 2.2） |
-| Tauri CLI | 待检查 | 运行 `cargo tauri --version` |
-| VS Build Tools | 待检查 | 运行 `where cl.exe` |
-| NSIS | 待检查 | 打包阶段才需要 |
+| Rust | ✅ | rustc 1.97.1, stable-x86_64-pc-windows-msvc |
+| Node.js | ✅ | v24.16.0 |
+| Python | ✅ | 3.13.2 |
+| 虚拟环境 | ✅ | venv\ 已创建，torch 2.6.0+cu124, ultralytics 8.4.71, CUDA 可用 (RTX 4070 Ti SUPER) |
+| Tauri CLI | ✅ | 2.11.4 |
+| VS Build Tools | ✅ | cl.exe 19.51.36248 for x64 (VS 2026 BuildTools) |
+| NSIS | ⚠️ 未安装 | 打包阶段才需要 |
+| Git | ✅ | 已同步 github.com:SadRenger/yolo-model-trainer, main 分支 |
+
+## 基线冻结
+
+> 🔒 需求 v2.0 硬冻结 | 🔐 设计风格 / UI 模型 软冻结 | 📅 2026-07-18
+>
+> 此后，文档优先于代码：任何偏离必须先提变更请求（按路由表 4.1 变更请求模板）。
 
 ## 最近测试结果
 
