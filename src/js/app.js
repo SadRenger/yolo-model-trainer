@@ -25,9 +25,7 @@
 
   /* ── Wire event listeners ── */
 
-  App.bus.addEventListener(App.EVENTS.NAVIGATE, function(e) {
-    router.navigate(e.detail.hash, e.detail.params);
-  });
+  // NAVIGATE handled by router itself (router.init registers its own listener)
 
   App.bus.addEventListener(App.EVENTS.PAGE_MOUNTED, function(e) {
     store.set('currentPage', e.detail.page);

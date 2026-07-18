@@ -5,6 +5,13 @@
   var App = window.App;
   App.pages = App.pages || {};
 
+  // Cache form state across page switches
+  var _formCache = {
+    taskName: '',
+    datasetPath: '',
+    modelPath: '',
+  };
+
   App.pages.newTraining = {
     mount: function(container, params) {
       params = params || {};
@@ -159,8 +166,22 @@
         });
       });
 
+      // Restore cached form state
+      var dsPath = formView.querySelector('#dataset-path');
+      var mdPath = formView.querySelector('#model-path');
+      if (dsPath) dsPath.value = _formCache.datasetPath || '';
+      if (mdPath) mdPath.value = _formCache.modelPath || '';
+
       container.appendChild(page);
-      return function() { page.remove(); };
+
+      // Save form state on destroy
+      return function() {
+        var ds = formView.querySelector('#dataset-path');
+        var md = formView.querySelector('#model-path');
+        if (ds) _formCache.datasetPath = ds.value;
+        if (md) _formCache.modelPath = md.value;
+        page.remove();
+      };
     }
   };
 
