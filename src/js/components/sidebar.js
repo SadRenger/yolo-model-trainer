@@ -42,6 +42,7 @@
       a.innerHTML = '<span class="sidebar__nav-icon">' + item.icon + '</span><span class="sidebar__nav-label">' + item.label + '</span>';
       a.addEventListener('click', function(e) {
         e.preventDefault();
+        self.setActive(item.hash); // immediate UI response
         App.bus.dispatchEvent(new CustomEvent(App.EVENTS.NAVIGATE, { detail: { hash: item.hash } }));
       });
       self.nav.appendChild(a);
