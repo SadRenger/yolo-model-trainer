@@ -17,36 +17,29 @@
 
 ## 当前阶段
 
-阶段一：工程搭建（Week 1）
+✅ 阶段一：工程搭建（Week 1）—— 全部完成
 
 ## 上次做到
 
-- 全部 8 份项目文档已定稿
-- 环境检查全部通过（Rust 1.97.1 / Node v24.16.0 / Python 3.13.2 / CUDA 12.4 / Tauri CLI 2.11.4 / VS Build Tools 2026）
-- 基线已冻结（2026-07-18）：需求 🔒 硬冻结，设计风格/UI 模型 🔐 软冻结
-- Git 已同步 github.com:SadRenger/yolo-model-trainer
-- **Tauri 2.x 项目骨架已初始化**：`cargo build` 通过（424 crates）
-- **前端基础结构已完成并验证通过**（`cargo tauri dev` 页面正常）
-- **Python 引擎 + Rust IPC 已完成**：
-  - python/engine/protocol.py: JSONL 协议 (emit/fatal/exit_ok)
-  - python/env_check.py: 环境检测 E-001~E-006, 本地测试通过
-  - Rust process_manager.rs: 子进程管理 (find_python 三级查找, spawn, stdout reader)
-  - Rust commands.rs: 10 个 Tauri Commands
-  - 前端 api.js: Tauri invoke() + Event 监听，HasTAURI 自动切换 mock/real
+- 全部 8 份项目文档已定稿，基线已冻结（2026-07-18）
+- **阶段一全部 5 个子任务完成并通过端到端验证**：
+  - 1.1 Tauri 2.x 骨架 (cargo build 通过)
+  - 1.2 前端基础结构 (侧边栏 + 4 页面 + 全局组件，cargo tauri dev 验证)
+  - 1.3 嵌入 Python 3.13 (process_manager + find_python)
+  - 1.4 Rust↔Python IPC (stdin/stdout JSONL 管道，已验证)
+  - 1.5 Rust↔前端事件 (Tauri Commands + Events，已验证)
+- **端到端链路验证通过**：设置页 🔄 → invoke → Rust spawn → Python env_check.py → JSONL stdout → Event → 前端显示真实 GPU/磁盘数据
 
-## 下一步
+## 下一步（阶段二：Python 引擎）
 
-1. 端到端验证：cargo tauri dev → 设置页点"重新检测"→ 确认真实 env_check.py 结果
-2. Python 脚本补充：dataset_check.py, model_check.py, train.py, infer.py（阶段二）
-3. 前端实时事件优化：训练进度条/日志/指标表联动 Tauri Events
+1. Python 脚本补充：dataset_check.py, model_check.py, train.py, infer.py
+2. 训练进度实时推送：train:line Events → 前端进度条/日志/指标表联动
 
 ## 已知问题
 
-- **Tauri 2.x 自定义协议不支持 ES modules**（`type="module"` + `import/export` 静默失败）。解决方案：全部 JS 使用 `window.App` 全局命名空间 + 普通 `<script>` 标签按依赖顺序加载。此限制仅影响 Tauri dev/build 模式下的自定义协议，不影响独立浏览器测试。
-
-## 最近的状态码
-
-（暂无——项目尚未开始编码）
+- **Tauri 2.x 自定义协议不支持 ES modules** → 全部 JS 使用 `window.App` 全局命名空间
+- **Windows 管道不支持 UTF-8 中文直接写入** → protocol.py 使用 `ensure_ascii=True`
+- **cargo tauri dev CWD 是 src-tauri/** → 路径需 `../python/` 前缀
 
 ## 环境快照
 
