@@ -198,6 +198,11 @@
       // Restore cached training state
       if (_trainingCache.state === 'training') {
         showTrainingState(page, formView, trainingView);
+        // Immediately restore sidebar progress (before next interval tick)
+        var cachePct = Math.round((_trainingCache.epoch / _trainingCache.totalEpochs) * 100);
+        App.bus.dispatchEvent(new CustomEvent(App.EVENTS.TRAINING_PROGRESS, {
+          detail: { epoch: _trainingCache.epoch, totalEpochs: _trainingCache.totalEpochs, pct: cachePct }
+        }));
         // Rebuild metrics table rows from cache
         var tbody = trainingView.querySelector('#metrics-table tbody');
         if (tbody) {

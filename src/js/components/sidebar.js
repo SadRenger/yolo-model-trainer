@@ -89,7 +89,11 @@
 
       App.bus.addEventListener(App.EVENTS.SIDEBAR_STATUS, function(e) {
         if (e.detail.status === 'training') {
-          if (originalLabel) originalLabel.textContent = '训练中…';
+          // Only set placeholder if not already showing progress %
+          var cur = originalLabel ? originalLabel.textContent : '';
+          if (!cur || cur === defaultText) {
+            if (originalLabel) originalLabel.textContent = '训练中…';
+          }
         } else if (e.detail.status === 'ready' || e.detail.status === 'error') {
           if (originalLabel) originalLabel.textContent = defaultText;
         }
