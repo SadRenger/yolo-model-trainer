@@ -223,11 +223,15 @@
         tauriListen('infer:line', function(payload) {
           var code = payload.code || '';
           if (code === 'I-006') {
-            result.total_detections = payload.total_detections;
+            result.total_detections = payload.total_detections || 0;
             result.inference_time_ms = payload.inference_time_ms;
+            result.detections = payload.detections || [];
+            result.stats = result.stats || {};
+            result.stats.inference_time_ms = payload.inference_time_ms;
+            result.stats.total = payload.total_detections;
           }
           if (code === 'I-008') {
-            // Final result ready
+            // Final result ready marker
           }
         }).then(function(fn) { unlistens.push(fn); });
 

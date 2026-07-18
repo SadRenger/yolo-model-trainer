@@ -102,7 +102,8 @@ def run_inference(model_path: str, image_path: str, conf: float, iou: float, img
                 "bbox": [round(float(x), 1) for x in box.xyxy[0].tolist()],
             })
 
-    emit("I-006", total_detections=len(detections), inference_time_ms=round(elapsed_ms, 1),
+    emit("I-006", total_detections=len(detections), detections=detections,
+         inference_time_ms=round(elapsed_ms, 1),
          message=f"推理完成 · {len(detections)} 个目标 · {elapsed_ms:.0f}ms")
 
     stats = {

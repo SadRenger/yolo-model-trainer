@@ -11,7 +11,8 @@
       var page = document.createElement('div');
       page.className = 'page page-inference';
       var currentState = 'no-model';
-      var selectedModelPath = params.model || null;
+      var selectedModelPath = params.model || '';
+      var selectedImagePath = '';
 
       var title = document.createElement('h1');
       title.className = 'page-title';
@@ -35,7 +36,8 @@
       uploadCard.innerHTML =
         '<div class="card__header"><span class="card__header-icon">🖼️</span><h2 class="card__title">图片上传</h2></div>' +
         '<div class="card__body">' +
-          '<div class="drop-zone drop-zone--disabled" id="drop-zone"><div class="drop-zone__icon">📸</div><div class="drop-zone__text">拖放图片到此处，或点击上传</div><div class="drop-zone__hint">支持 JPG / PNG / BMP，最大 20MB</div></div>' +
+          '<div style="display:flex;gap:8px;margin-bottom:12px"><input type="text" class="form-input" placeholder="选择要检测的图片…" style="flex:1" id="image-path" /><button class="btn btn--secondary btn--sm" id="btn-browse-image">浏览</button></div>' +
+          '<div class="drop-zone drop-zone--disabled" id="drop-zone"><div class="drop-zone__icon">📸</div><div class="drop-zone__text">拖放图片到此处，或点击上方浏览按钮</div><div class="drop-zone__hint">支持 JPG / PNG / BMP，最大 20MB</div></div>' +
           '<div id="collapsible-inference-params" style="margin-top:16px"></div>' +
           '<div style="margin-top:16px"><button class="btn btn--primary" id="btn-run-inference" disabled style="width:100%">🔍 开始检测</button></div>' +
         '</div>';
@@ -70,57 +72,102 @@
         '</div>';
       page.appendChild(resultsCard);
 
-      // Wire interactions
+      // ── Wire browse buttons to real file dialogs ──
+      var hasTauri = !!(window.__TAURI_INTERNALS__ && App.tauri);
+
       page.querySelector('#btn-browse-model').addEventListener('click', function() {
-        selectedModelPath = 'yolov8n.pt';
-        page.querySelector('#model-path').value = selectedModelPath;
-        var infoEl = page.querySelector('#model-info');
-        infoEl.innerHTML = '<span class="spinner"></span> 校验中…';
-        App.api.checkModel(selectedModelPath).then(function(result) {
-          if (result.valid) {
-            infoEl.innerHTML = '<div class="valid-state valid-state--pass">✅ ' + result.architecture + ' · ' + result.param_count + ' 参数 · ' + result.file_size + '</div>';
-            currentState = 'ready';
-            page.querySelector('#drop-zone').classList.remove('drop-zone--disabled');
-            page.querySelector('#btn-run-inference').disabled = false;
+        if (!hasTauri) return;
+        App.tauri.invoke('open_file_dialog').then(function(path) {
+          if (path) {
+            selectedModelPath = path;
+            page.querySelector('#model-path').value = path;
+            // Auto-validate
+            var infoEl = page.querySelector('#model-info');
+            infoEl.innerHTML = '<span class="spinner"></span> 校验中…';
+            App.api.checkModel(path).then(function(result) {
+              if (result.valid) {
+                infoEl.innerHTML = '<div class="valid-state valid-state--pass">✅ ' + result.architecture + ' · ' + result.param_count + ' 参数 · ' + result.file_size + '</div>';
+                currentState = 'ready';
+                page.querySelector('#drop-zone').classList.remove('drop-zone--disabled');
+                page.querySelector('#btn-run-inference').disabled = !selectedImagePath;
+              } else {
+                infoEl.innerHTML = '<div class="valid-state valid-state--fail">❌ 该文件不是有效的 YOLO 模型文件</div>';
+              }
+            }).catch(function(err) {
+              infoEl.innerHTML = '<div class="valid-state valid-state--fail">❌ 校验失败：' + (err.message || err) + '</div>';
+            });
           }
         });
       });
 
+      page.querySelector('#btn-browse-image').addEventListener('click', function() {
+        if (!hasTauri) return;
+        App.tauri.invoke('open_file_dialog').then(function(path) {
+          if (path) {
+            selectedImagePath = path;
+            page.querySelector('#image-path').value = path;
+            page.querySelector('#drop-zone').classList.remove('drop-zone--disabled');
+            page.querySelector('#btn-run-inference').disabled = !(currentState === 'ready');
+          }
+        }).catch(function(err) {
+          App.bus.dispatchEvent(new CustomEvent(App.EVENTS.TOAST_SHOW, {
+            detail: { type: 'error', title: '文件选择失败', message: String(err) }
+          }));
+        });
+      });
+
+      // Restore model from params (e.g., from training complete page)
       if (selectedModelPath) {
         page.querySelector('#model-path').value = selectedModelPath;
-        page.querySelector('#model-info').innerHTML = '<div class="valid-state valid-state--pass">✅ YOLOv8n · 3.2M 参数 · 6.2 MB</div>';
+        page.querySelector('#model-info').innerHTML = '<div class="valid-state valid-state--pass">✅ 已预选模型</div>';
         currentState = 'ready';
         page.querySelector('#drop-zone').classList.remove('drop-zone--disabled');
-        page.querySelector('#btn-run-inference').disabled = false;
       }
 
-      page.querySelector('#drop-zone').addEventListener('click', function() {
-        if (currentState !== 'ready') return;
-        runInference(page, resultsCard);
-      });
+      // ── Run inference ──
       page.querySelector('#btn-run-inference').addEventListener('click', function() {
-        if (currentState !== 'ready') return;
-        runInference(page, resultsCard);
+        if (currentState !== 'ready' || !selectedImagePath) return;
+        var btn = page.querySelector('#btn-run-inference');
+        btn.disabled = true;
+        btn.textContent = '⏳ 检测中…';
+
+        // Read params
+        var getSliderVal = function(sel) {
+          var el = uploadCard.querySelector(sel);
+          return el ? parseFloat(el.value) || 0 : 0;
+        };
+
+        App.api.runInference({
+          modelPath: selectedModelPath,
+          imagePath: selectedImagePath,
+          confidence: getSliderVal('input[type="range"]'),
+          iou: 0.45,
+          imageSize: 640,
+        }).then(function(result) {
+          // Populate results
+          var detections = result.detections || [];
+          var tbody = resultsCard.querySelector('#detection-table tbody');
+          tbody.innerHTML = detections.map(function(d) {
+            return '<tr><td>' + d.class + '</td><td style="color:var(--color-success)">' + ((d.confidence || 0) * 100).toFixed(1) + '%</td><td style="font-family:var(--font-code);font-size:var(--fs-caption)">[' + (d.bbox || []).join(', ') + ']</td></tr>';
+          }).join('');
+
+          var stats = result.stats || {};
+          resultsCard.querySelector('#inference-stats').textContent =
+            '共检测到 ' + (result.total_detections || detections.length) + ' 个目标 · 推理用时 ' + (stats.inference_time_ms || result.inference_time_ms || '?') + 'ms';
+          resultsCard.style.display = '';
+          btn.disabled = false;
+          btn.textContent = '🔍 重新检测';
+        }).catch(function(err) {
+          App.bus.dispatchEvent(new CustomEvent(App.EVENTS.TOAST_SHOW, {
+            detail: { type: 'error', title: '推理失败', message: err.message || String(err) }
+          }));
+          btn.disabled = false;
+          btn.textContent = '🔍 重试';
+        });
       });
 
       container.appendChild(page);
       return function() { page.remove(); };
     }
   };
-
-  function runInference(page, resultsCard) {
-    var btn = page.querySelector('#btn-run-inference');
-    btn.disabled = true;
-    btn.textContent = '⏳ 检测中…';
-    App.api.runInference({}).then(function(result) {
-      var tbody = resultsCard.querySelector('#detection-table tbody');
-      tbody.innerHTML = result.detections.map(function(d) {
-        return '<tr><td>' + d.class + '</td><td style="color:var(--color-success)">' + (d.confidence * 100).toFixed(1) + '%</td><td style="font-family:var(--font-code);font-size:var(--fs-caption)">[' + d.bbox.join(', ') + ']</td></tr>';
-      }).join('');
-      resultsCard.querySelector('#inference-stats').textContent = '共检测到 ' + result.total_detections + ' 个目标 · 推理用时 ' + result.inference_time_ms + 'ms · 输入 1920×1080 → 推理 640×384 · 置信度 0.25 · IoU 0.45';
-      resultsCard.style.display = '';
-      btn.disabled = false;
-      btn.textContent = '🔍 重新检测';
-    });
-  }
 })();
