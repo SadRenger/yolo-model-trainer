@@ -9,13 +9,24 @@ import sys
 import json
 from typing import Any, Dict
 
+# Force unbuffered stdout for pipe IPC on Windows.
+# Also set by Rust via `python -u`, but this is a belt-and-suspenders safety.
+sys.stdout.reconfigure(line_buffering=True) if hasattr(sys.stdout, 'reconfigure') else None
+
 
 def emit(code: str, **kwargs: Any) -> None:
     """Write a JSON line to stdout and flush immediately."""
     payload: Dict[str, Any] = {"code": code}
     payload.update(kwargs)
-    sys.stdout.write(json.dumps(payload, ensure_ascii=False) + "\n")
-    sys.stdout.flush()
+    line = json.dumps(payload, ensure_ascii=False) + "\n"
+    sys.stdout.write(line)
+    try:
+        sys.stdout.flush()
+    except OSError:
+        # On Windows, flushing a pipe can fail with EINVAL when the
+        # Rust parent is reading asynchronously. The data is still
+        # written to the pipe buffer — just not force-flushed.
+        pass
 
 
 def emit_error(code: str, message: str, **kwargs: Any) -> None:

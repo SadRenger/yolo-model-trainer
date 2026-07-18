@@ -159,6 +159,7 @@ impl ProcessManager {
         );
 
         let mut cmd = Command::new(&python_exe);
+        cmd.arg("-u"); // unbuffered stdout/stderr — required for pipe IPC on Windows
         cmd.arg(script_path.to_string_lossy().to_string());
         for arg in args {
             cmd.arg(arg);
