@@ -77,20 +77,21 @@ impl ProcessManager {
             }
         }
 
-        // 2. Project venv — relative to src-tauri/ (find_python called before current_dir is set)
-        let venv_python = std::path::Path::new("../venv/Scripts/python.exe");
-        let venv_python = if venv_python.exists() {
-            venv_python.canonicalize().unwrap_or_else(|_| venv_python.to_path_buf())
-        } else {
-            std::path::Path::new("venv/Scripts/python.exe").to_path_buf()
-        };
-        if venv_python.exists() {
-            return Ok(venv_python.canonicalize()
-                .unwrap_or_else(|_| venv_python.clone())
+        // 2. Project venv — find relative to src-tauri/, canonicalize to absolute
+        let venv_candidate = std::path::Path::new("../venv/Scripts/python.exe");
+        if venv_candidate.exists() {
+            return Ok(venv_candidate.canonicalize()
+                .unwrap_or_else(|_| venv_candidate.to_path_buf())
                 .to_string_lossy()
                 .to_string());
         }
-
+        let venv_candidate = std::path::Path::new("venv/Scripts/python.exe");
+        if venv_candidate.exists() {
+            return Ok(venv_candidate.canonicalize()
+                .unwrap_or_else(|_| venv_candidate.to_path_buf())
+                .to_string_lossy()
+                .to_string());
+        }
         // 3. PATH lookup (works when venv is activated before `cargo tauri dev`)
         let path_result = Command::new("python")
             .arg("--version")
@@ -134,21 +135,23 @@ impl ProcessManager {
         let python_exe = self.find_python()?;
 
         // Scripts live in <project-root>/python/.
-        // We set CWD to project root (../ from src-tauri), so scripts are at ./python/
-        let script_path = std::path::Path::new("python").join(script);
-        // Fallback: try ../python/ if CWD is still src-tauri (e.g., tests)
-        let script_path = if script_path.exists() {
-            script_path
+        // Resolve to absolute path so it works regardless of child CWD.
+        let script_relative = std::path::Path::new("python").join(script);
+        let script_path = if script_relative.exists() {
+            script_relative.canonicalize().unwrap_or(script_relative)
         } else {
-            std::path::Path::new("../python").join(script)
+            let alt = std::path::Path::new("../python").join(script);
+            if alt.exists() {
+                alt.canonicalize().unwrap_or(alt)
+            } else {
+                return Err(format!(
+                    "Script not found: {} or {} (cwd: {:?})",
+                    script_relative.display(),
+                    alt.display(),
+                    std::env::current_dir().unwrap_or_default()
+                ));
+            }
         };
-        if !script_path.exists() {
-            return Err(format!(
-                "Script not found: {} (cwd: {:?})",
-                script_path.display(),
-                std::env::current_dir().unwrap_or_default()
-            ));
-        }
 
         log::info!(
             "Spawning Python: {} {} (task: {})",
