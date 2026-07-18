@@ -5,11 +5,19 @@
   var App = window.App;
   App.pages = App.pages || {};
 
-  // Cache form state across page switches
+  // Cache form + training state across page switches
   var _formCache = {
     taskName: '',
     datasetPath: '',
     modelPath: '',
+  };
+  var _trainingCache = {
+    state: 'form',        // 'form' | 'training' | 'complete'
+    epoch: 0,
+    totalEpochs: 100,
+    metrics: [],          // [{epoch, loss, mAP50, mAP50_95}]
+    logs: [],             // [{time, text}]
+    intervalId: null,     // mock interval reference
   };
 
   App.pages.newTraining = {
@@ -49,6 +57,7 @@
         var epoch = 0;
         var totalEpochs = 100;
         var progressInterval = setInterval(function() {
+          _trainingCache.intervalId = progressInterval;
           epoch += Math.floor(Math.random() * 5) + 3;
           if (epoch >= totalEpochs) {
             epoch = totalEpochs;
@@ -185,6 +194,35 @@
       var mdPath = formView.querySelector('#model-path');
       if (dsPath) dsPath.value = _formCache.datasetPath || '';
       if (mdPath) mdPath.value = _formCache.modelPath || '';
+
+      // Restore cached training state
+      if (_trainingCache.state === 'training') {
+        showTrainingState(page, formView, trainingView);
+        // Rebuild metrics table rows from cache
+        var tbody = trainingView.querySelector('#metrics-table tbody');
+        if (tbody) {
+          _trainingCache.metrics.forEach(function(m) {
+            var row = document.createElement('tr');
+            row.innerHTML = '<td>' + m.epoch + '</td><td>' + m.loss + '</td><td>' + m.mAP50 + '</td><td>' + m.mAP50_95 + '</td>';
+            tbody.appendChild(row);
+          });
+        }
+        // Rebuild log lines from cache
+        var logEl = trainingView.querySelector('#training-log');
+        if (logEl) {
+          logEl.innerHTML = _trainingCache.logs.map(function(l) {
+            return '<div class="log-terminal__line"><span class="log-terminal__line--time">' + l.time + '</span> ' + l.text + '</div>';
+          }).join('');
+        }
+        // Restore progress bar
+        var pct = Math.round((_trainingCache.epoch / _trainingCache.totalEpochs) * 100);
+        var fill = trainingView.querySelector('#training-progress-fill');
+        if (fill) fill.style.width = pct + '%';
+        var label = trainingView.querySelector('#training-progress-label');
+        if (label) label.textContent = _trainingCache.epoch + ' / ' + _trainingCache.totalEpochs + ' epochs · ' + pct + '% · 估算剩余: ' + Math.round((_trainingCache.totalEpochs - _trainingCache.epoch) * 1.5) + 'm';
+      } else if (_trainingCache.state === 'complete') {
+        showCompleteState(page, formView, trainingView, completeView);
+      }
 
       container.appendChild(page);
 
@@ -356,6 +394,7 @@
   /* ═══════════ STATE TRANSITIONS ═══════════ */
 
   function showTrainingState(page, formView, trainingView) {
+    _trainingCache.state = 'training';
     formView.style.display = 'none';
     trainingView.style.display = '';
     var cv = page.querySelector('.page-complete-view');
@@ -364,12 +403,18 @@
   }
 
   function showCompleteState(page, formView, trainingView, completeView) {
+    _trainingCache.state = 'complete';
     formView.style.display = 'none';
     trainingView.style.display = 'none';
     completeView.style.display = '';
   }
 
   function resetToForm(page, formView, trainingView, completeView) {
+    _trainingCache.state = 'form';
+    _trainingCache.epoch = 0;
+    _trainingCache.metrics = [];
+    _trainingCache.logs = [];
+    if (_trainingCache.intervalId) { clearInterval(_trainingCache.intervalId); _trainingCache.intervalId = null; }
     formView.style.display = '';
     trainingView.style.display = 'none';
     completeView.style.display = 'none';
@@ -381,6 +426,9 @@
   }
 
   function updateTrainingMetrics(trainingView, epoch, totalEpochs) {
+    _trainingCache.epoch = epoch;
+    _trainingCache.totalEpochs = totalEpochs;
+
     var pct = Math.round((epoch / totalEpochs) * 100);
     var fill = trainingView.querySelector('#training-progress-fill');
     if (fill) fill.style.width = pct + '%';
@@ -391,10 +439,20 @@
     var loss = (2.5 - (epoch / totalEpochs) * 1.8 + Math.random() * 0.3).toFixed(3);
     var mAP = (0.1 + (epoch / totalEpochs) * 0.75 + Math.random() * 0.05).toFixed(3);
     var mAP95 = (mAP - 0.25).toFixed(3);
+
+    // Save to cache
+    _trainingCache.metrics.push({ epoch: epoch, loss: loss, mAP50: mAP, mAP50_95: mAP95 });
+    if (_trainingCache.metrics.length > 10) _trainingCache.metrics.shift();
+
+    var timeStr = new Date().toLocaleTimeString();
+    var logText = 'Epoch ' + epoch + '/' + totalEpochs + ' ─ loss: ' + loss + ', mAP50: ' + mAP + ', mAP50-95: ' + mAP95;
+    _trainingCache.logs.push({ time: timeStr, text: logText });
+    if (_trainingCache.logs.length > 100) _trainingCache.logs.shift();
+
     if (log) {
       var line = document.createElement('div');
       line.className = 'log-terminal__line';
-      line.innerHTML = '<span class="log-terminal__line--time">' + new Date().toLocaleTimeString() + '</span> Epoch ' + epoch + '/' + totalEpochs + ' ─ loss: ' + loss + ', mAP50: ' + mAP + ', mAP50-95: ' + mAP95;
+      line.innerHTML = '<span class="log-terminal__line--time">' + timeStr + '</span> ' + logText;
       log.appendChild(line);
       log.scrollTop = log.scrollHeight;
     }
