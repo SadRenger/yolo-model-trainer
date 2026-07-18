@@ -53,6 +53,16 @@
         '</div>';
       App.components.createCollapsible({ container: uploadCard.querySelector('#collapsible-inference-params'), title: '推理参数', subtitle: '(可调整)', defaultOpen: false, content: infContent });
 
+      // Slider-number bidirectional sync
+      uploadCard.querySelectorAll('.slider-row').forEach(function(row) {
+        var range = row.querySelector('input[type="range"]');
+        var number = row.querySelector('input[type="number"]');
+        if (range && number) {
+          range.addEventListener('input', function() { number.value = range.value; });
+          number.addEventListener('input', function() { range.value = number.value; });
+        }
+      });
+
       // Results Card (hidden)
       var resultsCard = document.createElement('div');
       resultsCard.className = 'card page-section';
