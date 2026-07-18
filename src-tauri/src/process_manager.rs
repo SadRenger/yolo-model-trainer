@@ -77,11 +77,16 @@ impl ProcessManager {
             }
         }
 
-        // 2. Project venv (relative to the executable or current dir)
-        let venv_python = std::path::Path::new("venv/Scripts/python.exe");
+        // 2. Project venv (relative to project root; in dev CWD is src-tauri/)
+        let venv_python = std::path::Path::new("../venv/Scripts/python.exe");
+        let venv_python = if venv_python.exists() {
+            venv_python.to_path_buf()
+        } else {
+            std::path::Path::new("venv/Scripts/python.exe").to_path_buf()
+        };
         if venv_python.exists() {
             return Ok(venv_python.canonicalize()
-                .unwrap_or_else(|_| venv_python.to_path_buf())
+                .unwrap_or_else(|_| venv_python.clone())
                 .to_string_lossy()
                 .to_string());
         }
@@ -128,9 +133,22 @@ impl ProcessManager {
     ) -> Result<(), String> {
         let python_exe = self.find_python()?;
 
-        let script_path = std::path::Path::new("python").join(script);
+        // Scripts live in <project-root>/python/.
+        // In dev mode, CWD is src-tauri/, so use ../python/.
+        // In production, scripts are bundled alongside the executable.
+        let script_path = std::path::Path::new("../python").join(script);
+        let script_path = if script_path.exists() {
+            script_path
+        } else {
+            // Fallback: try relative to CWD (production or custom setup)
+            std::path::Path::new("python").join(script)
+        };
         if !script_path.exists() {
-            return Err(format!("Script not found: {}", script_path.display()));
+            return Err(format!(
+                "Script not found: {} (cwd: {:?})",
+                script_path.display(),
+                std::env::current_dir().unwrap_or_default()
+            ));
         }
 
         log::info!(
