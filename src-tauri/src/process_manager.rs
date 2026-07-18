@@ -174,9 +174,17 @@ impl ProcessManager {
             cmd.stdin(Stdio::null());
         }
 
+        // Set CWD to project root so Python resolves relative paths correctly
+        let project_root = std::path::Path::new("..");
+        if project_root.exists() {
+            cmd.current_dir(project_root.canonicalize().unwrap_or_else(|_| project_root.to_path_buf()));
+        }
+
+        log::info!("Spawning: {} -u {} (cwd: {:?})", python_exe, script_path.display(), cmd.get_current_dir());
+
         let mut child = cmd
             .spawn()
-            .map_err(|e| format!("Failed to spawn Python: {}", e))?;
+            .map_err(|e| format!("Failed to spawn Python: {} (cwd: {:?})", e, std::env::current_dir().unwrap_or_default()))?;
 
         let pid = child.id();
         let task_id_owned = task_id.to_string();
@@ -206,18 +214,27 @@ impl ProcessManager {
         let scr = script.to_string();
 
         // Stderr reader thread — must run concurrently to prevent pipe buffer deadlock
+        let stderr_tid = tid.clone();
         let stderr_handle = std::thread::spawn(move || {
+            log::info!("[{}] stderr reader thread started", stderr_tid);
             let stderr_reader = BufReader::new(stderr);
             let lines: Vec<String> = stderr_reader.lines().filter_map(|l| l.ok()).collect();
+            log::info!("[{}] stderr reader done ({} lines)", stderr_tid, lines.len());
             lines
         });
 
         // Stdout reader + child wait thread
         std::thread::spawn(move || {
+            log::info!("[{}] stdout reader thread started", tid);
             let reader = BufReader::new(stdout);
+            let mut line_count = 0;
             for line in reader.lines() {
+                line_count += 1;
                 match line {
                     Ok(text) => {
+                        if line_count == 1 {
+                            log::info!("[{}] first stdout line received ({} chars)", tid, text.len());
+                        }
                         if text.trim().is_empty() {
                             continue;
                         }
@@ -231,6 +248,8 @@ impl ProcessManager {
                     }
                 }
             }
+
+            log::info!("[{}] stdout loop ended ({} lines), joining stderr...", tid, line_count);
 
             // Wait for stderr thread to finish, then get the output
             let stderr_text = stderr_handle
