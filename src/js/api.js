@@ -42,8 +42,18 @@
       return new Promise(function(resolve, reject) {
         var result = { python: {}, pytorch: {}, gpu: [], disk: {}, all_ready: false };
         var unlistens = [];
+        var resolved = false;
+
+        function done(err, data) {
+          if (resolved) return;
+          resolved = true;
+          unlistens.forEach(function(fn) { try { fn(); } catch(e) {} });
+          if (err) reject(err);
+          else resolve(data);
+        }
 
         tauriListen('env:check:line', function(payload) {
+          console.log('[env:check:line]', payload);
           var code = payload.code || '';
           if (code === 'E-002') { result.python = { ready: true, version: payload.python_version }; }
           if (code === 'E-003') { result.pytorch = { ready: true, version: payload.pytorch_version, cuda_available: payload.cuda_available }; }
@@ -53,19 +63,25 @@
           if (code === 'E-006') { result.all_ready = payload.all_ready; }
         }).then(function(fn) { unlistens.push(fn); });
 
-        tauriListen('env:check:completed', function() {
-          unlistens.forEach(function(fn) { try { fn(); } catch(e) {} });
-          resolve(result);
+        tauriListen('env:check:completed', function(payload) {
+          console.log('[env:check:completed]', payload);
+          done(null, result);
         });
 
         tauriListen('env:check:error', function(payload) {
-          unlistens.forEach(function(fn) { try { fn(); } catch(e) {} });
-          reject(new Error('Environment check failed (exit code ' + (payload.exit_code || '?') + ')'));
+          console.log('[env:check:error]', payload);
+          done(new Error('Environment check failed (exit code ' + (payload && payload.exit_code || '?') + ')'));
         });
 
-        tauriInvoke('check_environment').catch(function(err) {
-          unlistens.forEach(function(fn) { try { fn(); } catch(e) {} });
-          reject(err);
+        tauriInvoke('check_environment').then(function(taskId) {
+          console.log('[invoke] check_environment → task:', taskId);
+        }).catch(function(err) {
+          console.error('[invoke] check_environment FAILED:', err);
+          var msg = 'Unknown error';
+          if (typeof err === 'string') msg = err;
+          else if (err && err.message) msg = err.message;
+          else if (err) msg = JSON.stringify(err);
+          done(new Error('invoke failed: ' + msg));
         });
       });
     },
