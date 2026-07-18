@@ -25,14 +25,18 @@
 - 环境检查全部通过（Rust 1.97.1 / Node v24.16.0 / Python 3.13.2 / CUDA 12.4 / Tauri CLI 2.11.4 / VS Build Tools 2026）
 - 基线已冻结（2026-07-18）：需求 🔒 硬冻结，设计风格/UI 模型 🔐 软冻结
 - Git 已同步 github.com:SadRenger/yolo-model-trainer
-- **Tauri 2.x 项目骨架已初始化**：`cargo build` 通过（424 crates），`cargo tauri dev` 可启动
+- **Tauri 2.x 项目骨架已初始化**：`cargo build` 通过（424 crates）
+- **前端基础结构已完成**：20 个文件，包含侧边栏导航 + 4 页面路由 + 全局组件
+  - CSS: 5 层（variables / reset / layout / components / pages），完整设计令牌映射
+  - JS: 事件总线 + 状态存储 + Hash 路由器 + Mock API 层
+  - 组件: 侧边栏、Toast、Modal、Tooltip、Collapsible
+  - 页面: 新建训练（3 子状态）、训练历史（2 子状态）、推理测试（3 子状态）、设置
 
 ## 下一步
 
-1. 搭建前端基础结构（侧边栏导航框架 + 4 个页面路由）← 当前任务
-2. 嵌入 Python 3.13 运行时
-3. 建立 Rust ↔ Python IPC 通信
-4. 建立 Rust ↔ 前端事件通信
+1. 嵌入 Python 3.13 运行时
+2. 建立 Rust ↔ Python IPC 通信
+3. 建立 Rust ↔ 前端事件通信
 
 ## 已知问题
 

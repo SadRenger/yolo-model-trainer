@@ -1,0 +1,78 @@
+/* ═══════════════════════════════════════════════════
+   YOLO Model Trainer — Layout Shell
+   app-shell: sidebar(220px) + content(1fr) 网格
+   ═══════════════════════════════════════════════════ */
+
+/* ── App Shell Grid ── */
+.app-shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) 1fr;
+  grid-template-rows: 1fr;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── Sidebar ── */
+.sidebar {
+  grid-column: 1;
+  grid-row: 1;
+  background: var(--bg-secondary);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow-y: auto;
+  border-right: 1px solid var(--border-muted);
+  user-select: none;
+}
+
+/* ── Content Area ── */
+.content-area {
+  grid-column: 2;
+  grid-row: 1;
+  overflow-y: auto;
+  padding: var(--page-margin);
+  background: var(--bg-primary);
+}
+
+/* ── Page Container ── */
+.page {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.page-title {
+  font-size: var(--fs-h1);
+  line-height: var(--lh-h1);
+  font-weight: var(--fw-heading);
+  letter-spacing: -0.3px;
+  margin-bottom: var(--component-gap);
+  color: var(--text-primary);
+}
+
+/* ── Toast Container (fixed) ── */
+#toast-container {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+#toast-container > * {
+  pointer-events: auto;
+}
+
+/* ── Modal Root ── */
+#modal-root {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  pointer-events: none;
+}
+
+#modal-root.active {
+  pointer-events: auto;
+}

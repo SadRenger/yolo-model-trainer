@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- YOLO Trainer logo placeholder: a stylized neural network / eye -->
+  <defs>
+    <linearGradient id="grad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#4fc3f7"/>
+      <stop offset="100%" stop-color="#bc8cff"/>
+    </linearGradient>
+  </defs>
+  <!-- Outer circle -->
+  <circle cx="32" cy="32" r="28" fill="none" stroke="url(#grad)" stroke-width="3" opacity="0.6"/>
+  <!-- Inner eye/neuron shape -->
+  <circle cx="32" cy="32" r="12" fill="url(#grad)" opacity="0.9"/>
+  <!-- Crosshair / reticle lines -->
+  <line x1="8" y1="32" x2="18" y2="32" stroke="#4fc3f7" stroke-width="2" opacity="0.7"/>
+  <line x1="46" y1="32" x2="56" y2="32" stroke="#4fc3f7" stroke-width="2" opacity="0.7"/>
+  <line x1="32" y1="8" x2="32" y2="18" stroke="#4fc3f7" stroke-width="2" opacity="0.7"/>
+  <line x1="32" y1="46" x2="32" y2="56" stroke="#4fc3f7" stroke-width="2" opacity="0.7"/>
+</svg>
