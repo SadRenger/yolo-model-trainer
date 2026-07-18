@@ -26,17 +26,19 @@
 - 基线已冻结（2026-07-18）：需求 🔒 硬冻结，设计风格/UI 模型 🔐 软冻结
 - Git 已同步 github.com:SadRenger/yolo-model-trainer
 - **Tauri 2.x 项目骨架已初始化**：`cargo build` 通过（424 crates）
-- **前端基础结构已完成并验证通过**（`cargo tauri dev` 页面正常）：
-  - CSS: 5 层设计令牌体系
-  - JS: 全局命名空间 `window.App`（Tauri 自定义协议不支持 ES modules）
-  - 组件: Sidebar · Toast(4变体) · Modal(Promise API) · Tooltip · Collapsible
-  - 页面: 新建训练(3状态) · 训练历史(2状态) · 推理测试(3状态) · 设置
+- **前端基础结构已完成并验证通过**（`cargo tauri dev` 页面正常）
+- **Python 引擎 + Rust IPC 已完成**：
+  - python/engine/protocol.py: JSONL 协议 (emit/fatal/exit_ok)
+  - python/env_check.py: 环境检测 E-001~E-006, 本地测试通过
+  - Rust process_manager.rs: 子进程管理 (find_python 三级查找, spawn, stdout reader)
+  - Rust commands.rs: 10 个 Tauri Commands
+  - 前端 api.js: Tauri invoke() + Event 监听，HasTAURI 自动切换 mock/real
 
 ## 下一步
 
-1. 嵌入 Python 3.13 运行时
-2. 建立 Rust ↔ Python IPC 通信
-3. 建立 Rust ↔ 前端事件通信
+1. 端到端验证：cargo tauri dev → 设置页点"重新检测"→ 确认真实 env_check.py 结果
+2. Python 脚本补充：dataset_check.py, model_check.py, train.py, infer.py（阶段二）
+3. 前端实时事件优化：训练进度条/日志/指标表联动 Tauri Events
 
 ## 已知问题
 
