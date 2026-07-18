@@ -82,7 +82,38 @@ pub fn check_dataset(
     state.process_manager.spawn_python(
         &task_id,
         "dataset_check.py",
-        &[path],
+        &["--dataset-path".into(), path],
+        false,
+        app_handle,
+    )?;
+
+    Ok(task_id)
+}
+
+/* ═══════════════════════════════════════════════
+   Model Check
+   ═══════════════════════════════════════════════ */
+
+/// Validate a .pt model file.
+#[tauri::command]
+pub fn check_model(
+    path: String,
+    state: State<'_, AppState>,
+    app_handle: tauri::AppHandle,
+) -> Result<String, String> {
+    if path.is_empty() {
+        return Err("Model path is required".into());
+    }
+
+    let task_id = format!("model-check-{}", std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis());
+
+    state.process_manager.spawn_python(
+        &task_id,
+        "model_check.py",
+        &["--model-path".into(), path],
         false,
         app_handle,
     )?;
@@ -159,7 +190,11 @@ pub fn stop_training(
 
 #[tauri::command]
 pub fn run_inference(
-    config: serde_json::Value,
+    model_path: String,
+    image_path: String,
+    conf: Option<f64>,
+    iou: Option<f64>,
+    imgsz: Option<i64>,
     state: State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<String, String> {
@@ -168,17 +203,13 @@ pub fn run_inference(
         .unwrap_or_default()
         .as_millis());
 
-    let mut args: Vec<String> = Vec::new();
-    if let Some(obj) = config.as_object() {
-        for (k, v) in obj {
-            let val_str = match v {
-                serde_json::Value::String(s) => s.clone(),
-                other => other.to_string(),
-            };
-            args.push(format!("--{}", k));
-            args.push(val_str);
-        }
-    }
+    let mut args = vec![
+        "--model-path".into(), model_path,
+        "--image-path".into(), image_path,
+    ];
+    if let Some(c) = conf { args.push("--conf".into()); args.push(c.to_string()); }
+    if let Some(i) = iou { args.push("--iou".into()); args.push(i.to_string()); }
+    if let Some(s) = imgsz { args.push("--imgsz".into()); args.push(s.to_string()); }
 
     state.process_manager.spawn_python(
         &task_id,

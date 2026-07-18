@@ -92,12 +92,71 @@
 
     checkDataset: function(path) {
       if (!HAS_TAURI) { return delay(800).then(function() { return MOCK_DATASET; }); }
-      return delay(800).then(function() { return MOCK_DATASET; }); // TODO
+
+      return new Promise(function(resolve, reject) {
+        var result = { valid: false, errors: [], stats: {} };
+        var unlistens = [];
+        var done = false;
+
+        function finish(err, data) {
+          if (done) return; done = true;
+          unlistens.forEach(function(fn) { try { fn(); } catch(e) {} });
+          if (err) reject(err); else resolve(data);
+        }
+
+        tauriListen('dataset:check:line', function(payload) {
+          var code = payload.code || '';
+          if (code === 'D-003') { result.stats.total_images = payload.image_count; }
+          if (code === 'D-004') { result.stats.total_labels = payload.label_count; }
+          if (code === 'D-007') {
+            result.valid = payload.valid;
+            result.stats.categories = payload.class_count ? (new Array(payload.class_count)).fill('').map(function(_,i) { return 'class_' + i; }) : [];
+            result.image_count = payload.image_count;
+            result.class_count = payload.class_count;
+            result.classes = result.stats.categories;
+          }
+        }).then(function(fn) { unlistens.push(fn); });
+
+        tauriListen('dataset:check:completed', function() { finish(null, result); });
+        tauriListen('dataset:check:error', function(payload) {
+          finish(new Error('校验失败: ' + (payload && payload.stderr || 'exit ' + (payload && payload.exit_code))));
+        });
+
+        tauriInvoke('check_dataset', { path: path }).catch(function(err) { finish(err); });
+      });
     },
 
     checkModel: function(path) {
       if (!HAS_TAURI) { return delay(500).then(function() { return MOCK_MODEL; }); }
-      return delay(500).then(function() { return MOCK_MODEL; }); // TODO
+
+      return new Promise(function(resolve, reject) {
+        var result = { valid: false, architecture: null, param_count: null, file_size: null };
+        var unlistens = [];
+        var done = false;
+
+        function finish(err, data) {
+          if (done) return; done = true;
+          unlistens.forEach(function(fn) { try { fn(); } catch(e) {} });
+          if (err) reject(err); else resolve(data);
+        }
+
+        tauriListen('model:check:line', function(payload) {
+          var code = payload.code || '';
+          if (code === 'M-004' || code === 'M-005') {
+            result.valid = payload.valid || (code === 'M-005');
+            result.architecture = payload.model_type;
+            result.param_count = payload.params_count;
+            result.file_size = payload.file_size_mb ? (payload.file_size_mb + ' MB') : null;
+          }
+        }).then(function(fn) { unlistens.push(fn); });
+
+        tauriListen('model:check:completed', function() { finish(null, result); });
+        tauriListen('model:check:error', function(payload) {
+          finish(new Error('校验失败: ' + (payload && payload.stderr || 'exit ' + (payload && payload.exit_code))));
+        });
+
+        tauriInvoke('check_model', { path: path }).catch(function(err) { finish(err); });
+      });
     },
 
     startTraining: function(config) {

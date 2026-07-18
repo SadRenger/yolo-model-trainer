@@ -21,6 +21,7 @@ pub fn run() {
             commands::test_python,
             commands::check_environment,
             commands::check_dataset,
+            commands::check_model,
             commands::start_training,
             commands::pause_training,
             commands::resume_training,
