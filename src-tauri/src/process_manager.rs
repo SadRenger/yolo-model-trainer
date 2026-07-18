@@ -165,11 +165,9 @@ impl ProcessManager {
             cmd.stdin(Stdio::null());
         }
 
-        // Set CWD to project root so Python resolves relative paths correctly
-        let project_root = std::path::Path::new("..");
-        if project_root.exists() {
-            cmd.current_dir(project_root.canonicalize().unwrap_or_else(|_| project_root.to_path_buf()));
-        }
+        // Set CWD to project root so Python resolves relative paths correctly.
+        // IMPORTANT: do NOT canonicalize — Windows \\?\ prefix breaks Python subprocess.
+        cmd.current_dir("..");
 
         log::info!("Spawning: {} -u {} (cwd: {:?})", python_exe, script_arg, cmd.get_current_dir());
 
