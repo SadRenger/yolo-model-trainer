@@ -14,6 +14,9 @@
   var _trainingCache = {
     state: 'form',        // 'form' | 'training' | 'complete'
     taskId: null,         // Rust task_id for stop/pause
+    best_mAP50: 0,        // real training results (from T-308)
+    best_mAP50_95: 0,
+    total_time_s: 0,
     epoch: 0,
     totalEpochs: 100,
     metrics: [],          // [{epoch, loss, mAP50, mAP50_95}]
@@ -73,6 +76,11 @@
             App.bus.dispatchEvent(new CustomEvent(App.EVENTS.TOAST_SHOW, {
               detail: { type: 'info', title: '训练进度', message: '达到 ' + (payload.milestone || '') }
             }));
+          } else if (code === 'T-308') {
+            // Capture real training results for complete view
+            _trainingCache.best_mAP50 = payload.best_mAP50 || 0;
+            _trainingCache.best_mAP50_95 = payload.best_mAP50_95 || 0;
+            _trainingCache.total_time_s = payload.total_time_s || 0;
           }
         }).then(function(fn) { _trainUnlistens.push(fn); });
 
@@ -111,6 +119,21 @@
         if (hasTauri) {
           // Real training via Rust → Python
           var config = readFormConfig(formView);
+          // Pre-flight: reject empty paths
+          if (!config.dataset_path || !config.dataset_path.trim()) {
+            App.bus.dispatchEvent(new CustomEvent(App.EVENTS.TOAST_SHOW, {
+              detail: { type: 'warning', title: '无法启动训练', message: '请先选择训练图集（数据集）' }
+            }));
+            resetToForm(page, formView, trainingView, completeView);
+            return;
+          }
+          if (!config.model_path || !config.model_path.trim()) {
+            App.bus.dispatchEvent(new CustomEvent(App.EVENTS.TOAST_SHOW, {
+              detail: { type: 'warning', title: '无法启动训练', message: '请先选择模型文件（.pt）' }
+            }));
+            resetToForm(page, formView, trainingView, completeView);
+            return;
+          }
           App.api.startTraining(config).then(function(result) {
             _trainingCache.taskId = result.task_id; // store for stop button
           }).catch(function(err) {
@@ -554,6 +577,14 @@
     formView.style.display = 'none';
     trainingView.style.display = 'none';
     completeView.style.display = '';
+    // Inject real training results into the DOM
+    var mAP50 = _trainingCache.best_mAP50 || 0;
+    var mAP95 = _trainingCache.best_mAP50_95 || 0;
+    var timeMin = _trainingCache.total_time_s ? Math.round(_trainingCache.total_time_s / 60) : 0;
+    var vals = completeView.querySelectorAll('.metric-card__value');
+    if (vals[0]) vals[0].textContent = mAP50 ? mAP50.toFixed(3) : '--';
+    if (vals[1]) vals[1].textContent = mAP95 ? mAP95.toFixed(3) : '--';
+    if (vals[3]) vals[3].textContent = timeMin ? timeMin + 'm' : '--';
   }
 
   function resetToForm(page, formView, trainingView, completeView) {

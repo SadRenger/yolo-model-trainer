@@ -132,19 +132,28 @@ def run_training(args) -> dict:
 
     # ── Phase 1: Pre-launch checks ──
 
-    # Dataset
-    dataset_path = Path(args.dataset_path) if args.dataset_path else None
-    if dataset_path and not dataset_path.exists():
+    # Dataset — must be non-empty and exist
+    if not args.dataset_path or not args.dataset_path.strip():
+        emit("T-003E", message="数据集路径为空 — 请选择训练图集")
+        sys.exit(1)
+    dataset_path = Path(args.dataset_path.strip())
+    if not dataset_path.exists():
         emit("T-003E", message=f"数据集路径不存在: {dataset_path}")
         sys.exit(1)
-    emit("T-003", message="数据集路径校验通过")
+    emit("T-003", dataset_path=str(dataset_path), message="数据集路径校验通过")
 
-    # Model
-    model_path = Path(args.model_path) if args.model_path else None
-    if model_path and not model_path.exists():
+    # Model — must be non-empty, exist, and be .pt
+    if not args.model_path or not args.model_path.strip():
+        emit("T-004E", message="模型路径为空 — 请选择 .pt 模型文件")
+        sys.exit(1)
+    model_path = Path(args.model_path.strip())
+    if not model_path.exists():
         emit("T-004E", message=f"模型文件不存在: {model_path}")
         sys.exit(1)
-    emit("T-004", message="模型路径校验通过")
+    if model_path.suffix.lower() != ".pt":
+        emit("T-004E", message=f"模型文件扩展名不正确 ({model_path.suffix})，需要 .pt 文件")
+        sys.exit(1)
+    emit("T-004", model_path=str(model_path), message="模型路径校验通过")
 
     # Disk space
     try:
