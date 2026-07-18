@@ -69,8 +69,12 @@
         });
 
         tauriListen('env:check:error', function(payload) {
-          console.log('[env:check:error]', payload);
-          done(new Error('Environment check failed (exit code ' + (payload && payload.exit_code || '?') + ')'));
+          console.error('[env:check:error]', payload);
+          var msg = 'Environment check failed (exit code ' + (payload && payload.exit_code || '?') + ')';
+          if (payload && payload.stderr) {
+            msg += '\n' + payload.stderr;
+          }
+          done(new Error(msg));
         });
 
         tauriInvoke('check_environment').then(function(taskId) {

@@ -222,31 +222,46 @@ impl ProcessManager {
                 }
             }
 
+            // Read stderr FIRST (stdout reader already consumed by for loop)
+            let stderr_reader = BufReader::new(stderr);
+            let stderr_lines: Vec<String> = stderr_reader.lines().filter_map(|l| l.ok()).collect();
+            let stderr_text = stderr_lines.join("\n");
+
             // Process ended — check exit status
             match child.wait() {
                 Ok(status) => {
-                    let exit_event = if status.success() {
-                        format!("{}:completed", script_to_event(&scr))
-                    } else {
-                        format!("{}:error", script_to_event(&scr))
-                    };
                     let code = status.code().unwrap_or(-1);
-                    let payload = serde_json::json!({
-                        "code": if status.success() { "R-003" } else { "R-003E" },
-                        "task_id": tid,
-                        "exit_code": code,
-                    });
-                    let _ = handle_clone.emit(&exit_event, &payload.to_string());
-                    log::info!("[{}] process exited with code {}", tid, code);
+                    if status.success() {
+                        let payload = serde_json::json!({
+                            "code": "R-003",
+                            "task_id": tid,
+                            "exit_code": code,
+                        });
+                        let _ = handle_clone.emit(
+                            &format!("{}:completed", script_to_event(&scr)),
+                            &payload.to_string(),
+                        );
+                        log::info!("[{}] process exited with code {}", tid, code);
+                    } else {
+                        let payload = serde_json::json!({
+                            "code": "R-003E",
+                            "task_id": tid,
+                            "exit_code": code,
+                            "stderr": stderr_text,
+                        });
+                        let _ = handle_clone.emit(
+                            &format!("{}:error", script_to_event(&scr)),
+                            &payload.to_string(),
+                        );
+                        log::error!("[{}] process FAILED (exit {}): {}", tid, code, stderr_text);
+                    }
                 }
                 Err(e) => {
                     log::error!("[{}] failed to wait on child: {}", tid, e);
                 }
             }
 
-            // Read stderr for diagnostics
-            let stderr_reader = BufReader::new(stderr);
-            for line in stderr_reader.lines().flatten() {
+            for line in &stderr_lines {
                 if !line.trim().is_empty() {
                     log::warn!("[{}] stderr: {}", tid, line);
                 }
