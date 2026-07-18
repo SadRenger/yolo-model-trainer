@@ -254,7 +254,7 @@ def run_training(args) -> dict:
             mixup=args.mixup,
             fliplr=args.fliplr,
             close_mosaic=args.close_mosaic,
-            project=str(output_dir.parent) if output_dir.parent != Path(".") else "output",
+            project=str(output_dir.parent.resolve()),  # absolute path → no runs/detect/ prefix
             name=task_name,
             exist_ok=True,
             verbose=False,
@@ -277,8 +277,10 @@ def run_training(args) -> dict:
     best_mAP50_95 = round(_safe_float(results.results_dict.get("metrics/mAP50-95(B)")), 4)
 
     emit("T-301", message="训练正常完成")
-    emit("T-303", message="best.pt 已保存")
-    emit("T-304", message="last.pt 已保存")
+    best_path = output_dir / "weights" / "best.pt"
+    last_path = output_dir / "weights" / "last.pt"
+    emit("T-303", best_path=str(best_path), message="best.pt 已保存")
+    emit("T-304", last_path=str(last_path), message="last.pt 已保存")
     emit("T-305", message="指标文件已保存")
 
     # HTML report generation (placeholder)
