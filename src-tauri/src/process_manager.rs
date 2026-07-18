@@ -77,20 +77,14 @@ impl ProcessManager {
             }
         }
 
-        // 2. Project venv — find relative to src-tauri/, canonicalize to absolute
+        // 2. Project venv — relative to src-tauri/ (parent process CWD)
         let venv_candidate = std::path::Path::new("../venv/Scripts/python.exe");
         if venv_candidate.exists() {
-            return Ok(venv_candidate.canonicalize()
-                .unwrap_or_else(|_| venv_candidate.to_path_buf())
-                .to_string_lossy()
-                .to_string());
+            return Ok(venv_candidate.to_string_lossy().to_string());
         }
         let venv_candidate = std::path::Path::new("venv/Scripts/python.exe");
         if venv_candidate.exists() {
-            return Ok(venv_candidate.canonicalize()
-                .unwrap_or_else(|_| venv_candidate.to_path_buf())
-                .to_string_lossy()
-                .to_string());
+            return Ok(venv_candidate.to_string_lossy().to_string());
         }
         // 3. PATH lookup (works when venv is activated before `cargo tauri dev`)
         let path_result = Command::new("python")
@@ -135,23 +129,18 @@ impl ProcessManager {
         let python_exe = self.find_python()?;
 
         // Scripts live in <project-root>/python/.
-        // Resolve to absolute path so it works regardless of child CWD.
-        let script_relative = std::path::Path::new("python").join(script);
-        let script_path = if script_relative.exists() {
-            script_relative.canonicalize().unwrap_or(script_relative)
-        } else {
-            let alt = std::path::Path::new("../python").join(script);
-            if alt.exists() {
-                alt.canonicalize().unwrap_or(alt)
-            } else {
-                return Err(format!(
-                    "Script not found: {} or {} (cwd: {:?})",
-                    script_relative.display(),
-                    alt.display(),
-                    std::env::current_dir().unwrap_or_default()
-                ));
-            }
-        };
+        // Child CWD is set to project root, so pass path relative to that.
+        let project_root = std::path::Path::new("..");
+        let script_path = project_root.join("python").join(script);
+        if !script_path.exists() {
+            return Err(format!(
+                "Script not found: {} (looked relative to src-tauri/: {:?})",
+                script_path.display(),
+                std::env::current_dir().unwrap_or_default()
+            ));
+        }
+        // Pass as relative path from child's CWD (project root) = "python/script.py"
+        let script_arg = String::from("python/") + script;
 
         log::info!(
             "Spawning Python: {} {} (task: {})",
@@ -163,7 +152,7 @@ impl ProcessManager {
         let mut cmd = Command::new(&python_exe);
         cmd.env("PYTHONIOENCODING", "utf-8"); // force UTF-8 for pipe IPC
         cmd.arg("-u"); // unbuffered stdout/stderr — required for pipe IPC on Windows
-        cmd.arg(script_path.to_string_lossy().to_string());
+        cmd.arg(&script_arg);
         for arg in args {
             cmd.arg(arg);
         }
@@ -182,7 +171,7 @@ impl ProcessManager {
             cmd.current_dir(project_root.canonicalize().unwrap_or_else(|_| project_root.to_path_buf()));
         }
 
-        log::info!("Spawning: {} -u {} (cwd: {:?})", python_exe, script_path.display(), cmd.get_current_dir());
+        log::info!("Spawning: {} -u {} (cwd: {:?})", python_exe, script_arg, cmd.get_current_dir());
 
         let mut child = cmd
             .spawn()
