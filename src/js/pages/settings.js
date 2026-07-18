@@ -4,6 +4,7 @@
 (function() {
   var App = window.App;
   App.pages = App.pages || {};
+  var _envLoaded = false; // only auto-detect on first mount
 
   App.pages.settings = {
     mount: function(container, params) {
@@ -74,7 +75,13 @@
           envList.innerHTML = '<div style="color:var(--color-danger)">❌ 环境检测失败：' + err.message + '</div>';
         });
       }
-      loadEnv();
+      // Auto-detect only on first visit; subsequent visits use button
+      if (!_envLoaded) {
+        _envLoaded = true;
+        loadEnv();
+      } else {
+        envList.innerHTML = '<div class="env-item" style="justify-content:center;padding:16px"><span style="color:var(--text-muted)">点击上方 🔄 重新检测 按钮刷新环境信息</span></div>';
+      }
       envCard.querySelector('#btn-refresh-env').addEventListener('click', loadEnv);
 
       container.appendChild(page);
