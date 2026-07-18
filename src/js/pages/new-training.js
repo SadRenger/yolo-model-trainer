@@ -54,29 +54,7 @@
       // Wire start training
       formView.querySelector('#btn-start-training').addEventListener('click', function() {
         showTrainingState(page, formView, trainingView);
-        var epoch = 0;
-        var totalEpochs = 100;
-        var progressInterval = setInterval(function() {
-          _trainingCache.intervalId = progressInterval;
-          epoch += Math.floor(Math.random() * 5) + 3;
-          if (epoch >= totalEpochs) {
-            epoch = totalEpochs;
-            updateTrainingMetrics(trainingView, epoch, totalEpochs);
-            App.bus.dispatchEvent(new CustomEvent(App.EVENTS.TOAST_SHOW, {
-              detail: { type: 'info', title: '训练进度', message: '达到 100% — 训练即将完成' }
-            }));
-            clearInterval(progressInterval);
-            setTimeout(function() {
-              showCompleteState(page, formView, trainingView, completeView);
-              App.bus.dispatchEvent(new CustomEvent(App.EVENTS.SIDEBAR_STATUS, { detail: { status: 'ready' } }));
-              App.bus.dispatchEvent(new CustomEvent(App.EVENTS.TOAST_SHOW, {
-                detail: { type: 'success', title: '训练完成！', message: 'mAP50: 0.876 · 历时 2h 34m' }
-              }));
-            }, 500);
-            return;
-          }
-          updateTrainingMetrics(trainingView, epoch, totalEpochs);
-        }, 1200);
+        restartProgressInterval(trainingView, 0);
 
         trainingView.querySelector('#btn-stop-training').addEventListener('click', function() {
           var modalMgr = App._modalManager;
@@ -90,7 +68,7 @@
               secondaryLabel: '继续训练',
             }).then(function(confirmed) {
               if (confirmed) {
-                clearInterval(progressInterval);
+                if (_trainingCache.intervalId) { clearInterval(_trainingCache.intervalId); _trainingCache.intervalId = null; }
                 resetToForm(page, formView, trainingView, completeView);
                 App.bus.dispatchEvent(new CustomEvent(App.EVENTS.SIDEBAR_STATUS, { detail: { status: 'ready' } }));
               }
@@ -198,11 +176,13 @@
       // Restore cached training state
       if (_trainingCache.state === 'training') {
         showTrainingState(page, formView, trainingView);
-        // Immediately restore sidebar progress (before next interval tick)
+        // Immediately restore sidebar progress
         var cachePct = Math.round((_trainingCache.epoch / _trainingCache.totalEpochs) * 100);
         App.bus.dispatchEvent(new CustomEvent(App.EVENTS.TRAINING_PROGRESS, {
           detail: { epoch: _trainingCache.epoch, totalEpochs: _trainingCache.totalEpochs, pct: cachePct }
         }));
+        // Restart mock progress interval on new DOM
+        restartProgressInterval(trainingView, _trainingCache.epoch);
         // Rebuild metrics table rows from cache
         var tbody = trainingView.querySelector('#metrics-table tbody');
         if (tbody) {
@@ -397,6 +377,46 @@
   }
 
   /* ═══════════ STATE TRANSITIONS ═══════════ */
+
+  function restartProgressInterval(trainingView, startEpoch) {
+    if (_trainingCache.intervalId) {
+      clearInterval(_trainingCache.intervalId);
+      _trainingCache.intervalId = null;
+    }
+    var epoch = startEpoch || 0;
+    var totalEpochs = _trainingCache.totalEpochs || 100;
+    var id = setInterval(function() {
+      _trainingCache.intervalId = id;
+      epoch += Math.floor(Math.random() * 5) + 3;
+      if (epoch >= totalEpochs) {
+        epoch = totalEpochs;
+        updateTrainingMetrics(trainingView, epoch, totalEpochs);
+        clearInterval(id);
+        _trainingCache.intervalId = null;
+        App.bus.dispatchEvent(new CustomEvent(App.EVENTS.TOAST_SHOW, {
+          detail: { type: 'info', title: '训练进度', message: '达到 100% — 训练即将完成' }
+        }));
+        setTimeout(function() {
+          _trainingCache.state = 'complete';
+          var pg = trainingView.parentElement;
+          if (pg) {
+            var fv = pg.querySelector('.page-form-view');
+            var cv = pg.querySelector('.page-complete-view');
+            if (fv) fv.style.display = 'none';
+            trainingView.style.display = 'none';
+            if (cv) cv.style.display = '';
+          }
+          App.bus.dispatchEvent(new CustomEvent(App.EVENTS.SIDEBAR_STATUS, { detail: { status: 'ready' } }));
+          App.bus.dispatchEvent(new CustomEvent(App.EVENTS.TOAST_SHOW, {
+            detail: { type: 'success', title: '训练完成！', message: 'mAP50: 0.876 · 历时 2h 34m' }
+          }));
+        }, 500);
+        return;
+      }
+      updateTrainingMetrics(trainingView, epoch, totalEpochs);
+    }, 1200);
+    _trainingCache.intervalId = id;
+  }
 
   function showTrainingState(page, formView, trainingView) {
     _trainingCache.state = 'training';
