@@ -47,11 +47,14 @@ def check_gpu() -> list:
                 name = torch.cuda.get_device_name(i)
                 free_bytes, total_bytes = torch.cuda.mem_get_info(i)
                 total_mb = total_bytes / (1024 ** 2)
+                free_mb = free_bytes / (1024 ** 2)
                 gpus.append({
                     "index": i,
                     "name": name,
                     "vram_total_mb": round(total_mb),
                     "vram_total": f"{total_mb / 1024:.1f} GB",
+                    "vram_available_mb": round(free_mb),
+                    "vram_available": f"{free_mb / 1024:.1f} GB",
                 })
             emit("E-004", gpu_count=len(gpus), gpus=gpus)
         else:

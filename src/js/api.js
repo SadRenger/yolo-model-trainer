@@ -57,7 +57,7 @@
           var code = payload.code || '';
           if (code === 'E-002') { result.python = { ready: true, version: payload.python_version }; }
           if (code === 'E-003') { result.pytorch = { ready: true, version: payload.pytorch_version, cuda_available: payload.cuda_available }; }
-          if (code === 'E-004') { result.gpu = (payload.gpus || []).map(function(g) { return { name: g.name, vram_total: g.vram_total, vram_available: '--' }; }); }
+          if (code === 'E-004') { result.gpu = (payload.gpus || []).map(function(g) { return { name: g.name, vram_total: g.vram_total, vram_available: g.vram_available || '--' }; }); }
           if (code === 'E-004W') { result.gpu = []; }
           if (code === 'E-005' && payload.drives) { result.disk = { system_free: payload.drives[0].free_gb + ' GB', output_free: payload.drives.length > 1 ? payload.drives[1].free_gb + ' GB' : '--' }; }
           if (code === 'E-006') { result.all_ready = payload.all_ready; }
