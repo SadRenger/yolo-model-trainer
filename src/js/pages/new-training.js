@@ -610,11 +610,42 @@
   function updateTrainingLog(trainingView, msg) {
     var log = trainingView.querySelector('#training-log');
     if (!log) return;
+    var wasAtBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 40;
     var line = document.createElement('div');
     line.className = 'log-terminal__line';
     line.innerHTML = '<span class="log-terminal__line--time">' + new Date().toLocaleTimeString() + '</span> ' + msg;
     log.appendChild(line);
-    log.scrollTop = log.scrollHeight;
+    if (wasAtBottom) {
+      log.scrollTop = log.scrollHeight;
+    }
+    // Show "back to bottom" hint if not at bottom
+    updateScrollHint(trainingView, !wasAtBottom);
+  }
+
+  function updateScrollHint(trainingView, show) {
+    var hint = trainingView.querySelector('#scroll-hint');
+    if (show) {
+      if (!hint) {
+        hint = document.createElement('button');
+        hint.id = 'scroll-hint';
+        hint.className = 'btn btn--ghost btn--sm';
+        hint.textContent = '↓ 回到底部';
+        hint.style.cssText = 'position:absolute;bottom:8px;right:12px;z-index:5';
+        hint.addEventListener('click', function() {
+          var log = trainingView.querySelector('#training-log');
+          if (log) { log.scrollTop = log.scrollHeight; }
+          hint.style.display = 'none';
+        });
+        var logContainer = trainingView.querySelector('#training-log');
+        if (logContainer && logContainer.parentNode) {
+          logContainer.parentNode.style.position = 'relative';
+          logContainer.parentNode.appendChild(hint);
+        }
+      }
+      hint.style.display = '';
+    } else if (hint) {
+      hint.style.display = 'none';
+    }
   }
 
   function updateTrainingMetrics(trainingView, epoch, totalEpochs) {
