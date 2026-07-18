@@ -98,7 +98,10 @@ def check_dataset(dataset_path: str) -> dict:
                     try:
                         cls_id = int(parts[0])
                         coords = [float(x) for x in parts[1:5]]
-                        if not (0 <= coords[0] < coords[2] <= 1 and 0 <= coords[1] < coords[3] <= 1):
+                        # Each coord must be 0~1, class_id must be non-negative
+                        if not all(0.0 <= v <= 1.0 for v in coords):
+                            label_issues += 1
+                        if cls_id < 0:
                             label_issues += 1
                     except ValueError:
                         label_issues += 1
