@@ -186,7 +186,7 @@ pub fn start_training(
         &task_id,
         "train.py",
         &args,
-        true, // accept stdin for pause/resume/stop
+        false, // stdin disabled — pipe blocks Ultralytics import on Windows
         app_handle,
     )?;
 

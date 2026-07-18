@@ -323,9 +323,8 @@ def _generate_report(output_dir: Path, task_name: str, mAP50: float, mAP50_95: f
 def main():
     args = parse_args()
 
-    # Start stdin reader thread
-    stdin_thread = threading.Thread(target=stdin_reader, daemon=True)
-    stdin_thread.start()
+    # Stdin reader disabled — pipe blocks Ultralytics import on Windows
+    # Control commands (pause/resume/stop) will use file-based signaling instead
 
     try:
         result = run_training(args)
