@@ -143,7 +143,8 @@ def run_training(args) -> dict:
     sys.stdout.flush()
 
     from ultralytics import YOLO
-    emit("T-002", output_dir=str(output_dir), message="输出目录已创建")
+    emit("T-002", output_dir=str(output_dir), message="依赖导入完成（torch + ultralytics）")
+    sys.stdout.flush()
 
     # ── Phase 1: Pre-launch checks ──
 
