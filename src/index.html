@@ -12,11 +12,47 @@
 </head>
 <body>
   <div class="app-shell">
-    <aside class="sidebar" id="sidebar-container"></aside>
-    <main class="content-area" id="content-area"></main>
+    <aside class="sidebar" id="sidebar-container">
+      <div style="padding:20px;color:var(--text-secondary)">侧边栏加载中…</div>
+    </aside>
+    <main class="content-area" id="content-area">
+      <div class="empty-state"><div class="spinner"></div><p style="color:var(--text-muted);margin-top:8px">正在加载…</p></div>
+    </main>
   </div>
   <div id="toast-container"></div>
   <div id="modal-root"></div>
+
+  <!-- Error banner (hidden until JS fails) -->
+  <div id="js-error-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;background:var(--color-danger);color:#fff;padding:12px 20px;z-index:99999;font-family:var(--font-code);font-size:13px;max-height:200px;overflow-y:auto;white-space:pre-wrap;"></div>
+
+  <script>
+  /* ── Minimal Inline Test ── */
+  try {
+    // Test: render sidebar directly from inline script
+    var sidebar = document.getElementById('sidebar-container');
+    sidebar.innerHTML = '' +
+      '<div class="sidebar__brand"><span class="sidebar__logo">🧠</span><span class="sidebar__title">YOLO Trainer</span></div>' +
+      '<nav class="sidebar__nav">' +
+        '<a class="sidebar__nav-item sidebar__nav-item--active" href="#/new-training"><span class="sidebar__nav-icon">📊</span> 新建训练</a>' +
+        '<a class="sidebar__nav-item" href="#/history"><span class="sidebar__nav-icon">📂</span> 训练历史</a>' +
+        '<a class="sidebar__nav-item" href="#/inference"><span class="sidebar__nav-icon">🔍</span> 推理测试</a>' +
+        '<a class="sidebar__nav-item" href="#/settings"><span class="sidebar__nav-icon">⚙️</span> 设置</a>' +
+      '</nav>' +
+      '<hr class="sidebar__divider">' +
+      '<div class="sidebar__status"><span class="sidebar__status-dot status-dot--ready"></span> 环境就绪</div>' +
+      '<div class="sidebar__disk">存储: 156.3 GB 可用</div>';
+
+    var content = document.getElementById('content-area');
+    content.innerHTML = '<div class="page"><h1 class="page-title">✅ 内联脚本执行成功</h1><p style="color:var(--text-secondary)">侧边栏已渲染 · ES module 加载中…</p></div>';
+
+    // Set flag
+    window.__inlineTestPassed = true;
+  } catch(e) {
+    document.getElementById('js-error-banner').style.display = 'block';
+    document.getElementById('js-error-banner').textContent = '内联脚本异常: ' + e.message;
+  }
+  </script>
+
   <script type="module" src="js/app.js"></script>
 </body>
 </html>
