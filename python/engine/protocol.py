@@ -5,28 +5,41 @@ stderr: only for fatal errors (process crash)
 exit code: 0=success, 1=expected error, -1=unexpected exception
 """
 
+import os
 import sys
 import json
 from typing import Any, Dict
 
-# Force unbuffered stdout for pipe IPC on Windows.
-# Also set by Rust via `python -u`, but this is a belt-and-suspenders safety.
-sys.stdout.reconfigure(line_buffering=True) if hasattr(sys.stdout, 'reconfigure') else None
+# On Windows, Python's TextIOWrapper wrapping a pipe can fail with EINVAL.
+# Workaround: use the underlying binary buffer directly.
+_use_binary = sys.platform == "win32"
 
 
 def emit(code: str, **kwargs: Any) -> None:
-    """Write a JSON line to stdout and flush immediately."""
+    """Write a JSON line to stdout.
+
+    On Windows when stdout is a pipe (subprocess IPC), the TextIOWrapper
+    layer can fail with OSError 22. We bypass it by writing UTF-8 bytes
+    directly to the binary buffer, then flushing with an os-level fsync.
+    """
     payload: Dict[str, Any] = {"code": code}
     payload.update(kwargs)
     line = json.dumps(payload, ensure_ascii=False) + "\n"
-    sys.stdout.write(line)
+    data = line.encode("utf-8")
+
     try:
-        sys.stdout.flush()
+        if _use_binary:
+            sys.stdout.buffer.write(data)
+            sys.stdout.buffer.flush()
+        else:
+            sys.stdout.write(line)
+            sys.stdout.flush()
     except OSError:
-        # On Windows, flushing a pipe can fail with EINVAL when the
-        # Rust parent is reading asynchronously. The data is still
-        # written to the pipe buffer — just not force-flushed.
-        pass
+        # Last resort: direct fd write + ignore errors
+        try:
+            os.write(1, data)
+        except OSError:
+            pass
 
 
 def emit_error(code: str, message: str, **kwargs: Any) -> None:

@@ -63,4 +63,16 @@
   var contentArea = document.getElementById('content-area');
   // Router already replaced it, but just in case
   console.log('YOLO Model Trainer initialized');
+
+  /* ── Quick pipe diagnostic: spawn hello.py on startup ── */
+  if (window.__TAURI_INTERNALS__ && App.tauri) {
+    App.tauri.listen('python:line', function(payload) {
+      console.log('[python:line]', payload);
+    });
+    App.tauri.invoke('test_python').then(function(taskId) {
+      console.log('[test_python] spawned, task:', taskId);
+    }).catch(function(err) {
+      console.error('[test_python] FAILED:', err);
+    });
+  }
 })();

@@ -18,6 +18,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::test_python,
             commands::check_environment,
             commands::check_dataset,
             commands::start_training,

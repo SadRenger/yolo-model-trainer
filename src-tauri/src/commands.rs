@@ -20,6 +20,22 @@ impl AppState {
 }
 
 /* ═══════════════════════════════════════════════
+   Test Command (minimal Python — pipe diagnostic)
+   ═══════════════════════════════════════════════ */
+
+#[tauri::command]
+pub fn test_python(
+    state: State<'_, AppState>,
+    app_handle: tauri::AppHandle,
+) -> Result<String, String> {
+    let task_id = "test-hello";
+    state
+        .process_manager
+        .spawn_python(task_id, "hello.py", &[], false, app_handle)?;
+    Ok(task_id.to_string())
+}
+
+/* ═══════════════════════════════════════════════
    Environment Check
    ═══════════════════════════════════════════════ */
 
