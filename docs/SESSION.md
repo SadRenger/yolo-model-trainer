@@ -26,11 +26,11 @@
 - 基线已冻结（2026-07-18）：需求 🔒 硬冻结，设计风格/UI 模型 🔐 软冻结
 - Git 已同步 github.com:SadRenger/yolo-model-trainer
 - **Tauri 2.x 项目骨架已初始化**：`cargo build` 通过（424 crates）
-- **前端基础结构已完成**：20 个文件，包含侧边栏导航 + 4 页面路由 + 全局组件
-  - CSS: 5 层（variables / reset / layout / components / pages），完整设计令牌映射
-  - JS: 事件总线 + 状态存储 + Hash 路由器 + Mock API 层
-  - 组件: 侧边栏、Toast、Modal、Tooltip、Collapsible
-  - 页面: 新建训练（3 子状态）、训练历史（2 子状态）、推理测试（3 子状态）、设置
+- **前端基础结构已完成并验证通过**（`cargo tauri dev` 页面正常）：
+  - CSS: 5 层设计令牌体系
+  - JS: 全局命名空间 `window.App`（Tauri 自定义协议不支持 ES modules）
+  - 组件: Sidebar · Toast(4变体) · Modal(Promise API) · Tooltip · Collapsible
+  - 页面: 新建训练(3状态) · 训练历史(2状态) · 推理测试(3状态) · 设置
 
 ## 下一步
 
@@ -40,7 +40,7 @@
 
 ## 已知问题
 
-（暂无——项目尚未开始编码）
+- **Tauri 2.x 自定义协议不支持 ES modules**（`type="module"` + `import/export` 静默失败）。解决方案：全部 JS 使用 `window.App` 全局命名空间 + 普通 `<script>` 标签按依赖顺序加载。此限制仅影响 Tauri dev/build 模式下的自定义协议，不影响独立浏览器测试。
 
 ## 最近的状态码
 
