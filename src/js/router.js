@@ -1,9 +1,23 @@
 /* ═══════════════════════════════════════════════════
    YOLO Model Trainer — Hash Router
-   动态 import() 页面模块，管理 mount/destroy 生命周期
+   静态导入页面模块 + 页面注册表，管理 mount/destroy 生命周期
    ═══════════════════════════════════════════════════ */
 
 import { bus, EVENTS } from './events.js';
+
+// Static imports — required for Tauri custom protocol compatibility
+import * as PageNewTraining from './pages/new-training.js';
+import * as PageTrainingHistory from './pages/training-history.js';
+import * as PageInference from './pages/inference.js';
+import * as PageSettings from './pages/settings.js';
+
+/** Static page registry: name → module */
+const PAGE_REGISTRY = {
+  'new-training': PageNewTraining,
+  'training-history': PageTrainingHistory,
+  'inference': PageInference,
+  'settings': PageSettings,
+};
 
 /**
  * Route table: hash → page module name, title
@@ -122,9 +136,10 @@ export class Router {
     // Show loading
     this.container.innerHTML = '<div class="empty-state"><div class="spinner"></div></div>';
 
-    // Dynamic import page module
+    // Static lookup — avoids dynamic import() issues in Tauri custom protocol
     try {
-      const module = await import(`./pages/${route.page}.js`);
+      const module = PAGE_REGISTRY[route.page];
+      if (!module) throw new Error(`Unknown page: ${route.page}`);
       const cleanup = await module.mount(this.container, params);
       if (typeof cleanup === 'function') {
         this.currentDestroy = cleanup;
