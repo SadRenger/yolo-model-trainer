@@ -111,6 +111,20 @@
         }));
       });
 
+      // Browse buttons — open native file dialogs
+      formView.querySelector('#btn-browse-dataset').addEventListener('click', function() {
+        if (!window.__TAURI_INTERNALS__ || !App.tauri) return;
+        App.tauri.invoke('open_folder_dialog').then(function(path) {
+          if (path) { formView.querySelector('#dataset-path').value = path; }
+        });
+      });
+      formView.querySelector('#btn-browse-model').addEventListener('click', function() {
+        if (!window.__TAURI_INTERNALS__ || !App.tauri) return;
+        App.tauri.invoke('open_file_dialog').then(function(path) {
+          if (path) { formView.querySelector('#model-path').value = path; }
+        });
+      });
+
       // Dataset validation
       formView.querySelector('#btn-validate-dataset').addEventListener('click', function() {
         var resultEl = formView.querySelector('#dataset-valid-result');
@@ -201,7 +215,7 @@
             '</div>' +
             '<div class="form-group" style="grid-column:1/-1">' +
               '<label class="form-label">训练图集 <span class="form-label__required">*</span></label>' +
-              '<div style="display:flex;gap:8px"><input type="text" class="form-input" placeholder="选择文件夹或 ZIP 压缩包…" style="flex:1" id="dataset-path" /><button class="btn btn--secondary btn--sm">浏览</button></div>' +
+              '<div style="display:flex;gap:8px"><input type="text" class="form-input" placeholder="选择文件夹或 ZIP 压缩包…" style="flex:1" id="dataset-path" /><button class="btn btn--secondary btn--sm" id="btn-browse-dataset">浏览</button></div>' +
               '<div style="display:flex;align-items:center;gap:8px;margin-top:8px">' +
                 '<button class="btn btn--ghost btn--sm" id="btn-validate-dataset">🔍 校验数据集</button>' +
                 '<button class="btn btn--ghost btn--sm" id="btn-preview-dataset" style="display:none">📷 预览数据集</button>' +
@@ -210,7 +224,7 @@
             '</div>' +
             '<div class="form-group" style="grid-column:1/-1">' +
               '<label class="form-label">模型文件 <span class="form-label__required">*</span></label>' +
-              '<div style="display:flex;gap:8px"><input type="text" class="form-input" id="model-path" placeholder="选择 .pt 格式的 YOLO 预训练权重…" style="flex:1" /><button class="btn btn--secondary btn--sm">浏览</button></div>' +
+              '<div style="display:flex;gap:8px"><input type="text" class="form-input" id="model-path" placeholder="选择 .pt 格式的 YOLO 预训练权重…" style="flex:1" /><button class="btn btn--secondary btn--sm" id="btn-browse-model">浏览</button></div>' +
               '<button class="btn btn--ghost btn--sm" style="margin-top:8px" id="btn-validate-model">🔍 校验模型</button>' +
               '<div id="model-valid-result"></div>' +
               '<a class="info-link" href="#/settings" style="margin-top:4px">📖 查看模型下载与版本选择指南 →</a>' +

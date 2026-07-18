@@ -7,6 +7,7 @@ use commands::AppState;
 pub fn run() {
     tauri::Builder::default()
         .manage(AppState::new())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -18,6 +19,8 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::open_folder_dialog,
+            commands::open_file_dialog,
             commands::test_python,
             commands::check_environment,
             commands::check_dataset,

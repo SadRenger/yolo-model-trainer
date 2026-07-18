@@ -20,6 +20,37 @@ impl AppState {
 }
 
 /* ═══════════════════════════════════════════════
+   File Dialogs
+   ═══════════════════════════════════════════════ */
+
+/// Open a native folder picker dialog.
+#[tauri::command]
+pub async fn open_folder_dialog(
+    app_handle: tauri::AppHandle,
+) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+    let path = app_handle
+        .dialog()
+        .file()
+        .blocking_pick_folder();
+    Ok(path.map(|p| p.to_string()))
+}
+
+/// Open a native file picker for .pt model files.
+#[tauri::command]
+pub async fn open_file_dialog(
+    app_handle: tauri::AppHandle,
+) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+    let path = app_handle
+        .dialog()
+        .file()
+        .add_filter("YOLO Model", &["pt"])
+        .blocking_pick_file();
+    Ok(path.map(|p| p.to_string()))
+}
+
+/* ═══════════════════════════════════════════════
    Test Command (minimal Python — pipe diagnostic)
    ═══════════════════════════════════════════════ */
 
