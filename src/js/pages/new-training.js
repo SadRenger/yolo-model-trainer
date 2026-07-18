@@ -678,11 +678,13 @@
     if (_trainingCache.logs.length > 100) _trainingCache.logs.shift();
 
     if (log) {
+      var wasAtBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 40;
       var line = document.createElement('div');
       line.className = 'log-terminal__line';
       line.innerHTML = '<span class="log-terminal__line--time">' + timeStr + '</span> ' + logText;
       log.appendChild(line);
-      log.scrollTop = log.scrollHeight;
+      if (wasAtBottom) { log.scrollTop = log.scrollHeight; }
+      updateScrollHint(trainingView, !wasAtBottom);
     }
 
     var tbody = trainingView.querySelector('#metrics-table tbody');
