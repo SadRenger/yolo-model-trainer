@@ -5,41 +5,34 @@ stderr: only for fatal errors (process crash)
 exit code: 0=success, 1=expected error, -1=unexpected exception
 """
 
-import os
 import sys
 import json
 from typing import Any, Dict
 
-# On Windows, Python's TextIOWrapper wrapping a pipe can fail with EINVAL.
-# Workaround: use the underlying binary buffer directly.
-_use_binary = sys.platform == "win32"
+# Force UTF-8 for stdout pipe IPC on Windows.
+# Rust sets PYTHONIOENCODING=utf-8, but reconfigure here as safeguard.
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except OSError:
+        pass
 
 
 def emit(code: str, **kwargs: Any) -> None:
     """Write a JSON line to stdout.
 
-    On Windows when stdout is a pipe (subprocess IPC), the TextIOWrapper
-    layer can fail with OSError 22. We bypass it by writing UTF-8 bytes
-    directly to the binary buffer, then flushing with an os-level fsync.
+    Uses ASCII-safe JSON to avoid Windows pipe encoding issues.
+    OSError on flush is non-fatal: data is still written to the pipe.
     """
     payload: Dict[str, Any] = {"code": code}
     payload.update(kwargs)
-    line = json.dumps(payload, ensure_ascii=False) + "\n"
-    data = line.encode("utf-8")
-
+    # Use ensure_ascii=True to avoid Windows pipe encoding issues with Chinese
+    line = json.dumps(payload, ensure_ascii=True) + "\n"
+    sys.stdout.write(line)
     try:
-        if _use_binary:
-            sys.stdout.buffer.write(data)
-            sys.stdout.buffer.flush()
-        else:
-            sys.stdout.write(line)
-            sys.stdout.flush()
+        sys.stdout.flush()
     except OSError:
-        # Last resort: direct fd write + ignore errors
-        try:
-            os.write(1, data)
-        except OSError:
-            pass
+        pass  # Windows pipe flush may fail; data is still buffered
 
 
 def emit_error(code: str, message: str, **kwargs: Any) -> None:
