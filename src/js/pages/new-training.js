@@ -51,33 +51,86 @@
       completeView.style.display = 'none';
       page.appendChild(completeView);
 
-      // Wire start training
+      // ── Train:line event listener (persistent, for real Tauri training) ──
+      var _trainUnlistens = [];
+      function listenTrainEvents() {
+        if (!window.__TAURI_INTERNALS__ || !App.tauri) return;
+        App.tauri.listen('train:line', function(event) {
+          var payload = event.payload;
+          if (typeof payload === 'string') { try { payload = JSON.parse(payload); } catch(_) {} }
+          if (!payload) return;
+
+          var ptype = payload.type;
+          if (ptype === 'started') {
+            // Training confirmed started
+          } else if (ptype === 'progress') {
+            updateTrainingMetrics(trainingView, payload.epoch, payload.total_epochs);
+          } else if (ptype === 'completed') {
+            showCompleteState(page, formView, trainingView, completeView);
+            App.bus.dispatchEvent(new CustomEvent(App.EVENTS.SIDEBAR_STATUS, { detail: { status: 'ready' } }));
+            App.bus.dispatchEvent(new CustomEvent(App.EVENTS.TOAST_SHOW, {
+              detail: { type: 'success', title: '训练完成！', message: 'mAP50: ' + (payload.best_mAP50 || '--') + ' · 历时 ' + Math.round((payload.total_time || 0) / 60) + 'm' }
+            }));
+          } else if (ptype === 'stopped') {
+            resetToForm(page, formView, trainingView, completeView);
+            App.bus.dispatchEvent(new CustomEvent(App.EVENTS.SIDEBAR_STATUS, { detail: { status: 'ready' } }));
+          } else if (ptype === 'error') {
+            App.bus.dispatchEvent(new CustomEvent(App.EVENTS.TOAST_SHOW, {
+              detail: { type: 'error', title: '训练异常', message: payload.message || '未知错误' }
+            }));
+          }
+        }).then(function(fn) { _trainUnlistens.push(fn); });
+      }
+      listenTrainEvents();
+
+      // ── Wire start training (real Tauri or mock fallback) ──
       formView.querySelector('#btn-start-training').addEventListener('click', function() {
         showTrainingState(page, formView, trainingView);
-        restartProgressInterval(trainingView, 0);
 
-        trainingView.querySelector('#btn-stop-training').addEventListener('click', function() {
-          var modalMgr = App._modalManager;
-          if (modalMgr) {
-            modalMgr.show({
-              title: '确认停止训练',
-              body: '确定要停止训练吗？\n已产出的模型文件（best.pt / last.pt）会自动保留，可通过训练历史的断点续训功能恢复。',
-              icon: '⚠️',
-              primaryLabel: '确认停止',
-              primaryClass: 'btn--danger',
-              secondaryLabel: '继续训练',
-            }).then(function(confirmed) {
-              if (confirmed) {
-                if (_trainingCache.intervalId) { clearInterval(_trainingCache.intervalId); _trainingCache.intervalId = null; }
-                resetToForm(page, formView, trainingView, completeView);
-                App.bus.dispatchEvent(new CustomEvent(App.EVENTS.SIDEBAR_STATUS, { detail: { status: 'ready' } }));
-              }
-            });
+        var hasTauri = !!(window.__TAURI_INTERNALS__ && App.tauri);
+        if (hasTauri) {
+          // Real training via Rust → Python
+          var config = readFormConfig(formView);
+          App.api.startTraining(config).then(function(result) {
+            // Training spawned — progress will come via train:line events
+          }).catch(function(err) {
+            App.bus.dispatchEvent(new CustomEvent(App.EVENTS.TOAST_SHOW, {
+              detail: { type: 'error', title: '启动训练失败', message: err.message || String(err) }
+            }));
+            resetToForm(page, formView, trainingView, completeView);
+          });
+        } else {
+          // Mock fallback (no Tauri — browser dev or standalone)
+          restartProgressInterval(trainingView, 0);
+        }
+      });
+
+      // ── Stop button ──
+      trainingView.querySelector('#btn-stop-training').addEventListener('click', function() {
+        var modalMgr = App._modalManager;
+        if (!modalMgr) return;
+        modalMgr.show({
+          title: '确认停止训练',
+          body: '确定要停止训练吗？\n已产出的模型文件（best.pt / last.pt）会自动保留，可通过训练历史的断点续训功能恢复。',
+          icon: '⚠️',
+          primaryLabel: '确认停止',
+          primaryClass: 'btn--danger',
+          secondaryLabel: '继续训练',
+        }).then(function(confirmed) {
+          if (confirmed) {
+            if (_trainingCache.intervalId) { clearInterval(_trainingCache.intervalId); _trainingCache.intervalId = null; }
+            // Real stop via Rust if available
+            var hasTauri = !!(window.__TAURI_INTERNALS__ && App.tauri);
+            if (hasTauri) {
+              App.tauri.invoke('stop_training', { taskId: 'train-current' }).catch(function(){});
+            }
+            resetToForm(page, formView, trainingView, completeView);
+            App.bus.dispatchEvent(new CustomEvent(App.EVENTS.SIDEBAR_STATUS, { detail: { status: 'ready' } }));
           }
         });
       });
 
-      // Simulate complete
+      // Simulate complete (dev only)
       var simBtn = formView.querySelector('#btn-sim-complete');
       if (simBtn) {
         simBtn.addEventListener('click', function() {
@@ -199,8 +252,10 @@
         App.bus.dispatchEvent(new CustomEvent(App.EVENTS.TRAINING_PROGRESS, {
           detail: { epoch: _trainingCache.epoch, totalEpochs: _trainingCache.totalEpochs, pct: cachePct }
         }));
-        // Restart mock progress interval on new DOM
-        restartProgressInterval(trainingView, _trainingCache.epoch);
+        // Restart mock interval only if no Tauri (real events drive updates otherwise)
+        if (!window.__TAURI_INTERNALS__ || !App.tauri) {
+          restartProgressInterval(trainingView, _trainingCache.epoch);
+        }
         // Rebuild metrics table rows from cache
         var tbody = trainingView.querySelector('#metrics-table tbody');
         if (tbody) {
@@ -235,6 +290,9 @@
         var md = formView.querySelector('#model-path');
         if (ds) _formCache.datasetPath = ds.value;
         if (md) _formCache.modelPath = md.value;
+        // Unlisten train events (will re-listen on next mount via listenTrainEvents)
+        _trainUnlistens.forEach(function(fn) { try { fn(); } catch(e) {} });
+        _trainUnlistens = [];
         page.remove();
       };
     }
@@ -392,6 +450,32 @@
         '<button class="btn btn--primary" id="btn-goto-inference">🔍 用此模型进行推理测试 →</button>' +
       '</div>';
     return view;
+  }
+
+  /* ═══════════ HELPERS ═══════════ */
+
+  function readFormConfig(formView) {
+    var getVal = function(sel) {
+      var el = formView.querySelector(sel);
+      return el ? el.value : '';
+    };
+    return {
+      dataset_path: getVal('#dataset-path'),
+      model_path: getVal('#model-path'),
+      task_name: getVal('input[placeholder*="时间戳"]') || 'train_' + Date.now(),
+      epochs: parseInt(getVal('input[type="range"]')) || 100,
+      batch_size: 16,
+      imgsz: 640,
+      device: 'auto',
+      optimizer: 'AdamW',
+      lr0: 0.001,
+      momentum: 0.937,
+      weight_decay: 0.0005,
+      patience: 50,
+      mosaic: 1.0,
+      mixup: 0.0,
+      fliplr: 0.5,
+    };
   }
 
   /* ═══════════ STATE TRANSITIONS ═══════════ */
