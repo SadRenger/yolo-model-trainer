@@ -1,110 +1,87 @@
 /* ═══════════════════════════════════════════════════
    YOLO Model Trainer — API Layer (global namespace)
-   Auto-detects Tauri: if available, uses invoke(); else mock data.
+   Uses App.tauri bridge when in Tauri, otherwise mock data.
    ═══════════════════════════════════════════════════ */
 (function() {
   var App = window.App;
   var DELAY = 300;
-  var HAS_TAURI = !!(window.__TAURI__ || window.__TAURI_INTERNALS__);
+  var HAS_TAURI = !!window.__TAURI_INTERNALS__;
 
   function delay(ms) {
     ms = ms || DELAY;
     return new Promise(function(resolve) { setTimeout(resolve, ms); });
   }
 
-  /** Invoke a Tauri command. Falls back to mock if Tauri unavailable. */
   function tauriInvoke(cmd, args) {
-    if (HAS_TAURI && window.__TAURI__ && window.__TAURI__.core) {
-      return window.__TAURI__.core.invoke(cmd, args);
+    if (HAS_TAURI && App.tauri && App.tauri.invoke) {
+      return App.tauri.invoke(cmd, args);
     }
-    // Fallback for older Tauri or dev without @tauri-apps/api
     return Promise.reject(new Error('Tauri API not available'));
   }
 
-  /** Listen for a Tauri event. Falls back to mock bus. */
   function tauriListen(eventName, callback) {
-    if (HAS_TAURI && window.__TAURI__ && window.__TAURI__.event) {
-      return window.__TAURI__.event.listen(eventName, function(e) {
-        var payload = e.payload;
-        // If payload is a JSON string, parse it
-        if (typeof payload === 'string') {
-          try { payload = JSON.parse(payload); } catch(_) {}
-        }
-        callback(payload);
-      });
+    if (!HAS_TAURI || !App.tauri || !App.tauri.listen) {
+      return Promise.resolve(function() {});
     }
-    return Promise.resolve(function() {}); // no-op unlisten
+    return App.tauri.listen(eventName, function(event) {
+      var payload = event.payload;
+      if (typeof payload === 'string') {
+        try { payload = JSON.parse(payload); } catch(_) {}
+      }
+      callback(payload);
+    });
   }
 
   /* ═══════════ API Methods ═══════════ */
 
   App.api = {
 
-    /* ── Environment Check ── */
     checkEnvironment: function() {
-      if (!HAS_TAURI) {
-        return delay().then(function() { return MOCK_ENV; });
-      }
+      if (!HAS_TAURI) { return delay().then(function() { return MOCK_ENV; }); }
 
       return new Promise(function(resolve, reject) {
         var result = { python: {}, pytorch: {}, gpu: [], disk: {}, all_ready: false };
-        var lines = [];
-        var unlisten = function() {};
+        var unlistens = [];
 
         tauriListen('env:check:line', function(payload) {
-          lines.push(payload);
-          // Parse each line and extract data
           var code = payload.code || '';
           if (code === 'E-002') { result.python = { ready: true, version: payload.python_version }; }
           if (code === 'E-003') { result.pytorch = { ready: true, version: payload.pytorch_version, cuda_available: payload.cuda_available }; }
-          if (code === 'E-004') {
-            result.gpu = (payload.gpus || []).map(function(g) { return { name: g.name, vram_total: g.vram_total, vram_available: '--' }; });
-          }
+          if (code === 'E-004') { result.gpu = (payload.gpus || []).map(function(g) { return { name: g.name, vram_total: g.vram_total, vram_available: '--' }; }); }
           if (code === 'E-004W') { result.gpu = []; }
-          if (code === 'E-005') { result.disk = { system_free: payload.drives ? payload.drives[0].free_gb + ' GB' : '--', output_free: '--' }; }
+          if (code === 'E-005' && payload.drives) { result.disk = { system_free: payload.drives[0].free_gb + ' GB', output_free: payload.drives.length > 1 ? payload.drives[1].free_gb + ' GB' : '--' }; }
           if (code === 'E-006') { result.all_ready = payload.all_ready; }
-        }).then(function(fn) { unlisten = fn; });
+        }).then(function(fn) { unlistens.push(fn); });
 
         tauriListen('env:check:completed', function() {
-          unlisten();
+          unlistens.forEach(function(fn) { try { fn(); } catch(e) {} });
           resolve(result);
         });
 
         tauriListen('env:check:error', function(payload) {
-          unlisten();
-          reject(new Error(payload.message || 'Environment check failed'));
+          unlistens.forEach(function(fn) { try { fn(); } catch(e) {} });
+          reject(new Error('Environment check failed (exit code ' + (payload.exit_code || '?') + ')'));
         });
 
         tauriInvoke('check_environment').catch(function(err) {
-          unlisten();
+          unlistens.forEach(function(fn) { try { fn(); } catch(e) {} });
           reject(err);
         });
       });
     },
 
-    /* ── Dataset Check ── */
     checkDataset: function(path) {
-      if (!HAS_TAURI) {
-        return delay(800).then(function() { return MOCK_DATASET; });
-      }
-      // TODO: real Tauri implementation
-      return delay(800).then(function() { return MOCK_DATASET; });
+      if (!HAS_TAURI) { return delay(800).then(function() { return MOCK_DATASET; }); }
+      return delay(800).then(function() { return MOCK_DATASET; }); // TODO
     },
 
-    /* ── Model Check ── */
     checkModel: function(path) {
-      if (!HAS_TAURI) {
-        return delay(500).then(function() { return MOCK_MODEL; });
-      }
-      // TODO: real Tauri implementation
-      return delay(500).then(function() { return MOCK_MODEL; });
+      if (!HAS_TAURI) { return delay(500).then(function() { return MOCK_MODEL; }); }
+      return delay(500).then(function() { return MOCK_MODEL; }); // TODO
     },
 
-    /* ── Training ── */
     startTraining: function(config) {
-      if (!HAS_TAURI) {
-        return delay().then(function() { return { task_id: 'task_' + Date.now(), status: 'started' }; });
-      }
+      if (!HAS_TAURI) { return delay().then(function() { return { task_id: 'task_' + Date.now(), status: 'started' }; }); }
       return tauriInvoke('start_training', { config: config }).then(function(taskId) {
         return { task_id: taskId, status: 'started' };
       });
@@ -125,21 +102,13 @@
       return tauriInvoke('stop_training', { taskId: taskId });
     },
 
-    /* ── Training History ── */
     getTaskHistory: function() {
-      if (!HAS_TAURI) {
-        return delay().then(function() { return MOCK_HISTORY; });
-      }
-      return tauriInvoke('get_task_history').catch(function() {
-        return []; // Return empty on error
-      });
+      if (!HAS_TAURI) { return delay().then(function() { return MOCK_HISTORY; }); }
+      return tauriInvoke('get_task_history').catch(function() { return []; });
     },
 
-    /* ── Settings ── */
     getSettings: function() {
-      if (!HAS_TAURI) {
-        return delay(200).then(function() { return { output_directory: 'C:\\Users\\User\\YOLO_Output', log_level: 'detailed' }; });
-      }
+      if (!HAS_TAURI) { return delay(200).then(function() { return { output_directory: 'C:\\Users\\User\\YOLO_Output', log_level: 'detailed' }; }); }
       return tauriInvoke('get_settings');
     },
 
@@ -148,13 +117,9 @@
       return tauriInvoke('save_settings', { settings: settings });
     },
 
-    /* ── Inference ── */
     runInference: function(config) {
-      if (!HAS_TAURI) {
-        return delay(800).then(function() { return MOCK_INFERENCE; });
-      }
-      // TODO: real Tauri implementation
-      return delay(800).then(function() { return MOCK_INFERENCE; });
+      if (!HAS_TAURI) { return delay(800).then(function() { return MOCK_INFERENCE; }); }
+      return delay(800).then(function() { return MOCK_INFERENCE; }); // TODO
     }
   };
 
