@@ -17,25 +17,26 @@
 
 ## 当前阶段
 
-阶段二：Python 引擎（Week 2–4）—— 脚本已完成，待联调验证
+阶段二：Python 引擎（Week 2–4）—— 全部 5 个脚本端到端验证通过
 
 ## 上次做到
 
 - 全部 8 份项目文档已定稿，基线已冻结（2026-07-18）
 - **阶段一全部完成并验证通过**
-- **阶段二 Python 脚本已全部创建**：
-  - dataset_check.py (D-001~D-007E, 15 codes)
-  - model_check.py (M-001~M-004E, 9 codes)
-  - infer.py (I-001~I-007E, 15 codes)
-  - train.py (T-001~T-308, 43 codes: 训练+暂停+恢复+停止+报告)
-- Rust commands 已接线（check_dataset, check_model, run_inference）
-- 前端 api.js 已接线（全部 4 个 API 调用真实 Rust→Python 链路）
+- **阶段二全部完成并验证通过**：
+  - env_check.py: E-001~E-006，真实 GPU/磁盘数据 ✅
+  - dataset_check.py: D-001~D-007E，data.yaml/images/labels 校验 ✅
+  - model_check.py: M-001~M-004E，.pt 文件加载 + 参数提取 ✅
+  - train.py: T-001~T-308，实时进度 + 日志 + best.pt 产出 ✅
+  - infer.py: I-001~I-007E，真实检测结果 ✅
+- Rust process_manager: stderr 并发读, current_dir(".."), 脚本相对路径
+- 前端: 文件浏览对话框, 日志智能滚动, 训练中切页保持, 侧边栏进度%
+- BUG: 18 个报告, 18 个已解决
 
-## 下一步
+## 下一步（阶段二收尾）
 
-1. cargo tauri dev 联调验证：新建训练页的校验数据集/校验模型功能
-2. 真实训练验证：用小数据集跑通完整 train.py 流程
-3. 训练进度前端实时更新（train:line Events → 进度条/日志/指标表）
+1. 数据集预览（Python OpenCV 标注框绘制 + 前端图片查看器）
+2. 阶段三准备：训练历史真实数据、暂停/恢复/停止
 
 ## 待实现功能
 
