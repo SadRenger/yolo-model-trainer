@@ -444,6 +444,11 @@
     _trainingCache.metrics.push({ epoch: epoch, loss: loss, mAP50: mAP, mAP50_95: mAP95 });
     if (_trainingCache.metrics.length > 10) _trainingCache.metrics.shift();
 
+    // Emit progress event for sidebar to consume
+    App.bus.dispatchEvent(new CustomEvent(App.EVENTS.TRAINING_PROGRESS, {
+      detail: { epoch: epoch, totalEpochs: totalEpochs, pct: pct }
+    }));
+
     var timeStr = new Date().toLocaleTimeString();
     var logText = 'Epoch ' + epoch + '/' + totalEpochs + ' ─ loss: ' + loss + ', mAP50: ' + mAP + ', mAP50-95: ' + mAP95;
     _trainingCache.logs.push({ time: timeStr, text: logText });

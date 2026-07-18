@@ -72,6 +72,29 @@
     this.diskText.textContent = '存储: -- GB 可用';
     this.diskArea.appendChild(this.diskText);
     this.container.appendChild(this.diskArea);
+
+    // ── Training progress: update first nav item dynamically ──
+    var firstNavItem = this.nav.querySelector('.sidebar__nav-item');
+    if (firstNavItem) {
+      // Store original label for restoration
+      var originalLabel = firstNavItem.querySelector('.sidebar__nav-label');
+      var defaultText = originalLabel ? originalLabel.textContent : '新建训练';
+
+      App.bus.addEventListener(App.EVENTS.TRAINING_PROGRESS, function(e) {
+        var pct = e.detail.pct || 0;
+        if (originalLabel) {
+          originalLabel.textContent = '训练中 · ' + pct + '%';
+        }
+      });
+
+      App.bus.addEventListener(App.EVENTS.SIDEBAR_STATUS, function(e) {
+        if (e.detail.status === 'training') {
+          if (originalLabel) originalLabel.textContent = '训练中…';
+        } else if (e.detail.status === 'ready' || e.detail.status === 'error') {
+          if (originalLabel) originalLabel.textContent = defaultText;
+        }
+      });
+    }
   };
 
   App.components.Sidebar.prototype.setActive = function(hash) {
