@@ -4,7 +4,7 @@
 (function() {
   var App = window.App;
   App.pages = App.pages || {};
-  var _envLoaded = false; // only auto-detect on first mount
+  var _lastEnv = null;   // cached env result for persistence across page switches
 
   App.pages.settings = {
     mount: function(container, params) {
@@ -60,27 +60,32 @@
 
       // Load environment
       var envList = envCard.querySelector('#env-status-list');
+      function renderEnv(env) {
+        envList.innerHTML =
+          '<div class="env-item"><span class="env-item__icon">✅</span><span class="env-item__label">Python 环境</span><span class="env-item__value">' + env.python.version + ' — 就绪</span></div>' +
+          '<div class="env-item"><span class="env-item__icon">✅</span><span class="env-item__label">PyTorch</span><span class="env-item__value">' + env.pytorch.version + ' — CUDA: ' + (env.pytorch.cuda_available ? '可用' : '不可用') + '</span></div>' +
+          env.gpu.map(function(gpu) {
+            return '<div class="env-item"><span class="env-item__icon">✅</span><span class="env-item__label">GPU</span><span class="env-item__value">' + gpu.name + ' · 总 ' + gpu.vram_total + ' · 可用 ' + gpu.vram_available + '</span></div>';
+          }).join('') +
+          '<div class="env-item"><span class="env-item__icon">✅</span><span class="env-item__label">磁盘空间</span><span class="env-item__value">系统盘: ' + env.disk.system_free + ' 可用 · 输出盘: ' + env.disk.output_free + ' 可用</span></div>' +
+          '<div style="margin-top:12px;padding:8px 12px;background:rgba(88,166,255,0.08);border-radius:var(--radius-sm);font-size:var(--fs-caption);color:var(--color-success)">✅ 所有检测项正常，环境就绪</div>';
+      }
+
       function loadEnv() {
         envList.innerHTML = '<div class="empty-state"><div class="spinner"></div><p style="color:var(--text-muted);margin-top:8px">检测中…</p></div>';
         App.api.checkEnvironment().then(function(env) {
-          envList.innerHTML =
-            '<div class="env-item"><span class="env-item__icon">✅</span><span class="env-item__label">Python 环境</span><span class="env-item__value">' + env.python.version + ' — 就绪</span></div>' +
-            '<div class="env-item"><span class="env-item__icon">✅</span><span class="env-item__label">PyTorch</span><span class="env-item__value">' + env.pytorch.version + ' — CUDA: ' + (env.pytorch.cuda_available ? '可用' : '不可用') + '</span></div>' +
-            env.gpu.map(function(gpu) {
-              return '<div class="env-item"><span class="env-item__icon">✅</span><span class="env-item__label">GPU</span><span class="env-item__value">' + gpu.name + ' · 总 ' + gpu.vram_total + ' · 可用 ' + gpu.vram_available + '</span></div>';
-            }).join('') +
-            '<div class="env-item"><span class="env-item__icon">✅</span><span class="env-item__label">磁盘空间</span><span class="env-item__value">系统盘: ' + env.disk.system_free + ' 可用 · 输出盘: ' + env.disk.output_free + ' 可用</span></div>' +
-            '<div style="margin-top:12px;padding:8px 12px;background:rgba(88,166,255,0.08);border-radius:var(--radius-sm);font-size:var(--fs-caption);color:var(--color-success)">✅ 所有检测项正常，环境就绪</div>';
+          _lastEnv = env; // cache for persistence
+          renderEnv(env);
         }).catch(function(err) {
           envList.innerHTML = '<div style="color:var(--color-danger)">❌ 环境检测失败：' + err.message + '</div>';
         });
       }
-      // Auto-detect only on first visit; subsequent visits use button
-      if (!_envLoaded) {
-        _envLoaded = true;
-        loadEnv();
+
+      // Auto-detect on first visit; subsequent visits restore cached result
+      if (_lastEnv) {
+        renderEnv(_lastEnv);
       } else {
-        envList.innerHTML = '<div class="env-item" style="justify-content:center;padding:16px"><span style="color:var(--text-muted)">点击上方 🔄 重新检测 按钮刷新环境信息</span></div>';
+        loadEnv();
       }
       envCard.querySelector('#btn-refresh-env').addEventListener('click', loadEnv);
 
