@@ -62,12 +62,15 @@ def check_gpu() -> list:
     return gpus
 
 
-def check_disk() -> dict:
+def check_disk() -> list:
     """Check disk space on system drive and current drive."""
     drives = []
-    # System drive
-    system_drive = os.environ.get("SystemDrive", "C:")
-    for drive in [system_drive, os.path.splitdrive(os.getcwd())[0] or system_drive]:
+    seen = set()
+    for drive_path in [os.getcwd(), os.environ.get("SystemDrive", "C:") + "\\"]:
+        drive = os.path.splitdrive(drive_path)[0] or "C:"
+        if drive in seen:
+            continue
+        seen.add(drive)
         try:
             usage = shutil.disk_usage(drive + "\\")
             free_gb = usage.free / (1024 ** 3)
@@ -77,27 +80,50 @@ def check_disk() -> dict:
                 "free_gb": round(free_gb, 1),
                 "total_gb": round(total_gb, 1),
             })
-        except Exception:
-            pass
+        except Exception as e:
+            emit("E-005W", drive=drive, message=f"磁盘 {drive} 检测失败: {e}")
 
-    emit("E-005", drives=drives, message=f"磁盘空间检测完成")
+    emit("E-005", drives=drives, message="磁盘空间检测完成")
     return drives
 
 
 def main():
+    exit_code = 0
     try:
         python = check_python()
-        pytorch = check_pytorch()
-        gpus = check_gpu()
-        disks = check_disk()
-
-        all_ready = python["ready"] and pytorch["ready"]
-        emit("E-006", all_ready=all_ready, message="环境检测全部完成" if all_ready else "环境检测完成 — 存在异常项")
-
-        exit_ok()
     except Exception as e:
-        emit("E-006E", message=f"环境检测异常: {e}")
-        sys.exit(-1)
+        emit("E-002E", message=f"Python 检测异常: {e}")
+        python = {"ready": False, "version": "unknown"}
+        exit_code = 1
+
+    try:
+        pytorch = check_pytorch()
+    except Exception as e:
+        emit("E-003E", message=f"PyTorch 检测异常: {e}")
+        pytorch = {"ready": False, "version": None, "cuda_available": False}
+        exit_code = 1
+
+    try:
+        gpus = check_gpu()
+    except Exception as e:
+        emit("E-004E", message=f"GPU 检测异常: {e}")
+        gpus = []
+        exit_code = 1
+
+    try:
+        disks = check_disk()
+    except Exception as e:
+        emit("E-005E", message=f"磁盘检测异常: {e}")
+        disks = []
+        exit_code = 1
+
+    all_ready = python.get("ready", False) and pytorch.get("ready", False) and exit_code == 0
+    emit("E-006", all_ready=all_ready, message="环境检测全部完成" if all_ready else "环境检测完成 — 存在异常项")
+
+    if exit_code != 0:
+        sys.exit(exit_code)
+    else:
+        exit_ok()
 
 
 if __name__ == "__main__":

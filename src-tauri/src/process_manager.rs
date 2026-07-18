@@ -211,7 +211,7 @@ impl ProcessManager {
                         if text.trim().is_empty() {
                             continue;
                         }
-                        let event_name = script_to_event(&scr);
+                        let event_name = format!("{}:line", script_to_event(&scr));
                         let _ = handle_clone.emit(&event_name, &text);
                         log::debug!("[{}] stdout: {}", tid, &text[..text.len().min(120)]);
                     }
@@ -288,21 +288,22 @@ impl ProcessManager {
     }
 }
 
-/// Map a Python script name to a Tauri event name prefix.
+/// Map a Python script name to a Tauri event name prefix (without suffix).
+/// Suffixes :line, :completed, :error are appended by the caller.
 fn script_to_event(script: &str) -> String {
     if script.contains("env_check") {
-        "env:check:line".into()
+        "env:check".into()
     } else if script.contains("train") {
-        "train:line".into()
+        "train".into()
     } else if script.contains("infer") {
-        "infer:line".into()
+        "infer".into()
     } else if script.contains("dataset") {
-        "dataset:check:line".into()
+        "dataset:check".into()
     } else if script.contains("model_check") {
-        "model:check:line".into()
+        "model:check".into()
     } else if script.contains("export") {
-        "export:line".into()
+        "export".into()
     } else {
-        "python:line".into()
+        "python".into()
     }
 }
