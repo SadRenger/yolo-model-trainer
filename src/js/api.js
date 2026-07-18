@@ -94,7 +94,7 @@
       if (!HAS_TAURI) { return delay(800).then(function() { return MOCK_DATASET; }); }
 
       return new Promise(function(resolve, reject) {
-        var result = { valid: false, errors: [], stats: {} };
+        var result = { valid: false, image_count: 0, class_count: 0, classes: [], errors: [], stats: {} };
         var unlistens = [];
         var done = false;
 
@@ -109,17 +109,26 @@
           if (code === 'D-003') { result.stats.total_images = payload.image_count; }
           if (code === 'D-004') { result.stats.total_labels = payload.label_count; }
           if (code === 'D-007') {
-            result.valid = payload.valid;
-            result.stats.categories = payload.class_count ? (new Array(payload.class_count)).fill('').map(function(_,i) { return 'class_' + i; }) : [];
-            result.image_count = payload.image_count;
-            result.class_count = payload.class_count;
-            result.classes = result.stats.categories;
+            result.valid = payload.valid || false;
+            result.image_count = payload.image_count || 0;
+            result.class_count = payload.class_count || 0;
+            if (payload.class_count) {
+              result.classes = (new Array(payload.class_count)).fill('').map(function(_,i) { return 'class_' + (i+1); });
+            }
+          }
+          // Capture any error/warning messages
+          if (code && code.indexOf('E') > -1) {
+            result.errors.push({ level: 'error', message: payload.message || code });
+          }
+          if (code && code.indexOf('W') > -1) {
+            result.errors.push({ level: 'warning', message: payload.message || code });
           }
         }).then(function(fn) { unlistens.push(fn); });
 
         tauriListen('dataset:check:completed', function() { finish(null, result); });
         tauriListen('dataset:check:error', function(payload) {
-          finish(new Error('校验失败: ' + (payload && payload.stderr || 'exit ' + (payload && payload.exit_code))));
+          var stderr = (payload && payload.stderr) || '';
+          finish(new Error(stderr || ('exit code ' + (payload && payload.exit_code))));
         });
 
         tauriInvoke('check_dataset', { path: path }).catch(function(err) { finish(err); });

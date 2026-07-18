@@ -109,11 +109,27 @@
         var resultEl = formView.querySelector('#dataset-valid-result');
         resultEl.innerHTML = '<span class="spinner"></span> 正在校验数据集…';
         resultEl.className = 'valid-state';
-        App.api.checkDataset('mock/path').then(function(result) {
-          resultEl.className = 'valid-state valid-state--pass';
-          resultEl.innerHTML = '✅ 校验通过 · ' + result.image_count + ' 张图片 · ' + result.class_count + ' 个类别';
-          formView.querySelector('#btn-start-training').disabled = false;
-          formView.querySelector('#btn-preview-dataset').style.display = '';
+        var inputEl = formView.querySelector('#dataset-path');
+        var path = inputEl ? inputEl.value.trim() : '';
+        if (!path) {
+          resultEl.className = 'valid-state valid-state--fail';
+          resultEl.innerHTML = '❌ 请先输入或选择数据集路径';
+          return;
+        }
+        App.api.checkDataset(path).then(function(result) {
+          if (result.valid) {
+            resultEl.className = 'valid-state valid-state--pass';
+            resultEl.innerHTML = '✅ 校验通过 · ' + (result.image_count || 0) + ' 张图片 · ' + (result.class_count || 0) + ' 个类别';
+            formView.querySelector('#btn-start-training').disabled = false;
+            formView.querySelector('#btn-preview-dataset').style.display = '';
+          } else {
+            resultEl.className = 'valid-state valid-state--fail';
+            var errors = (result.errors || []).map(function(e) { return e.message; }).join('；');
+            resultEl.innerHTML = '❌ 校验失败：' + (errors || '数据集格式不正确');
+          }
+        }).catch(function(err) {
+          resultEl.className = 'valid-state valid-state--fail';
+          resultEl.innerHTML = '❌ 校验失败：' + (err.message || err);
         });
       });
 
@@ -122,9 +138,24 @@
         var resultEl = formView.querySelector('#model-valid-result');
         resultEl.innerHTML = '<span class="spinner"></span> 正在校验模型…';
         resultEl.className = 'valid-state';
-        App.api.checkModel('mock/model.pt').then(function(result) {
-          resultEl.className = 'valid-state valid-state--pass';
-          resultEl.innerHTML = '✅ ' + result.architecture + ' · ' + result.param_count + ' 参数 · ' + result.file_size;
+        var modelInput = formView.querySelector('#model-path');
+        var path = modelInput ? modelInput.value.trim() : '';
+        if (!path) {
+          resultEl.className = 'valid-state valid-state--fail';
+          resultEl.innerHTML = '❌ 请先输入或选择模型文件路径';
+          return;
+        }
+        App.api.checkModel(path).then(function(result) {
+          if (result.valid) {
+            resultEl.className = 'valid-state valid-state--pass';
+            resultEl.innerHTML = '✅ ' + (result.architecture || '模型') + ' · ' + (result.param_count || '?') + ' 参数 · ' + (result.file_size || '?');
+          } else {
+            resultEl.className = 'valid-state valid-state--fail';
+            resultEl.innerHTML = '❌ 该文件不是有效的 YOLO 模型文件';
+          }
+        }).catch(function(err) {
+          resultEl.className = 'valid-state valid-state--fail';
+          resultEl.innerHTML = '❌ 校验失败：' + (err.message || err);
         });
       });
 
@@ -158,7 +189,7 @@
             '</div>' +
             '<div class="form-group" style="grid-column:1/-1">' +
               '<label class="form-label">模型文件 <span class="form-label__required">*</span></label>' +
-              '<div style="display:flex;gap:8px"><input type="text" class="form-input" placeholder="选择 .pt 格式的 YOLO 预训练权重…" style="flex:1" /><button class="btn btn--secondary btn--sm">浏览</button></div>' +
+              '<div style="display:flex;gap:8px"><input type="text" class="form-input" id="model-path" placeholder="选择 .pt 格式的 YOLO 预训练权重…" style="flex:1" /><button class="btn btn--secondary btn--sm">浏览</button></div>' +
               '<button class="btn btn--ghost btn--sm" style="margin-top:8px" id="btn-validate-model">🔍 校验模型</button>' +
               '<div id="model-valid-result"></div>' +
               '<a class="info-link" href="#/settings" style="margin-top:4px">📖 查看模型下载与版本选择指南 →</a>' +
