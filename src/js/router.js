@@ -83,12 +83,13 @@
       this.currentDestroy = null;
     }
 
-    this.container.innerHTML = '';
     this.container.innerHTML = '<div class="empty-state"><div class="spinner"></div></div>';
 
     try {
       var module = App.pages[route.page];
       if (!module) throw new Error('Unknown page: ' + route.page);
+      // Clear spinner before mount — pages appendChild, don't replace
+      this.container.innerHTML = '';
       var cleanup = module.mount(this.container, parsed.params);
       if (typeof cleanup === 'function') this.currentDestroy = cleanup;
       this.currentPageName = route.page;
