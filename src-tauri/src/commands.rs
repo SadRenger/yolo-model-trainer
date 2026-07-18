@@ -36,7 +36,7 @@ pub async fn open_folder_dialog(
     Ok(path.map(|p| p.to_string()))
 }
 
-/// Open a native file picker for .pt model files.
+/// Open a native file picker (any file type — used for both model and image).
 #[tauri::command]
 pub async fn open_file_dialog(
     app_handle: tauri::AppHandle,
@@ -45,7 +45,6 @@ pub async fn open_file_dialog(
     let path = app_handle
         .dialog()
         .file()
-        .add_filter("YOLO Model", &["pt"])
         .blocking_pick_file();
     Ok(path.map(|p| p.to_string()))
 }

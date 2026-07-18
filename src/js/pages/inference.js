@@ -131,18 +131,24 @@
         btn.disabled = true;
         btn.textContent = '⏳ 检测中…';
 
-        // Read params
-        var getSliderVal = function(sel) {
-          var el = uploadCard.querySelector(sel);
-          return el ? parseFloat(el.value) || 0 : 0;
-        };
+        // Read params from all three sliders
+        var sliders = uploadCard.querySelectorAll('.slider-row');
+        var confVal = 0.25, iouVal = 0.45, imgszVal = 640;
+        if (sliders.length >= 3) {
+          var r0 = sliders[0].querySelector('input[type="number"]');
+          var r1 = sliders[1].querySelector('input[type="number"]');
+          var r2 = sliders[2].querySelector('input[type="number"]');
+          if (r0) confVal = parseFloat(r0.value) || 0.25;
+          if (r1) iouVal = parseFloat(r1.value) || 0.45;
+          if (r2) imgszVal = parseInt(r2.value) || 640;
+        }
 
         App.api.runInference({
           modelPath: selectedModelPath,
           imagePath: selectedImagePath,
-          confidence: getSliderVal('input[type="range"]'),
-          iou: 0.45,
-          imageSize: 640,
+          confidence: confVal,
+          iou: iouVal,
+          imageSize: imgszVal,
         }).then(function(result) {
           // Populate results
           var detections = result.detections || [];
