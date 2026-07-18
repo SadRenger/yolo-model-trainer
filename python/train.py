@@ -79,16 +79,29 @@ def stdin_reader():
         emit("T-201E", message=f"stdin 读取异常: {e}")
 
 
+def _safe_float(val, default=0.0):
+    """Convert metrics value to float, handling Ultralytics dict-format values."""
+    if val is None:
+        return default
+    if isinstance(val, dict):
+        # Newer Ultralytics wraps scalar metrics in {"value": ..., "name": ...}
+        return float(val.get("value", val.get("mean", default)))
+    try:
+        return float(val)
+    except (TypeError, ValueError):
+        return default
+
+
 def on_train_epoch_end(trainer):
     """Ultralytics callback: called after each epoch."""
     epoch = trainer.epoch + 1
     total = trainer.epochs
     metrics = trainer.metrics
 
-    loss = round(float(metrics.get("train/loss", 0)), 4)
-    mAP50 = round(float(metrics.get("metrics/mAP50(B)", 0)), 4)
-    mAP50_95 = round(float(metrics.get("metrics/mAP50-95(B)", 0)), 4)
-    lr = round(float(trainer.lr if hasattr(trainer, "lr") else 0), 6)
+    loss = round(_safe_float(metrics.get("train/loss")), 4)
+    mAP50 = round(_safe_float(metrics.get("metrics/mAP50(B)")), 4)
+    mAP50_95 = round(_safe_float(metrics.get("metrics/mAP50-95(B)")), 4)
+    lr = round(_safe_float(getattr(trainer, "lr", 0)), 6)
 
     emit("T-104", type="progress", epoch=epoch, total_epochs=total,
          loss=loss, mAP50=mAP50, mAP50_95=mAP50_95, lr=lr,
@@ -253,8 +266,8 @@ def run_training(args) -> dict:
         return {"status": "stopped", "output_dir": str(output_dir)}
 
     # Extract final metrics
-    best_mAP50 = round(float(results.results_dict.get("metrics/mAP50(B)", 0)), 4)
-    best_mAP50_95 = round(float(results.results_dict.get("metrics/mAP50-95(B)", 0)), 4)
+    best_mAP50 = round(_safe_float(results.results_dict.get("metrics/mAP50(B)")), 4)
+    best_mAP50_95 = round(_safe_float(results.results_dict.get("metrics/mAP50-95(B)")), 4)
 
     emit("T-301", message="训练正常完成")
     emit("T-303", message="best.pt 已保存")
