@@ -85,7 +85,7 @@
         // Download best.pt
         var srcPath = (outputDir || '') + '/weights/best.pt';
         App.tauri.invoke('save_file_dialog', { defaultName: 'best.pt' }).then(function(savePath) {
-          if (!savePath) return;
+          if (!savePath) throw new Error('CANCELLED');
           return App.tauri.invoke('copy_file', { src: srcPath, dst: savePath });
         }).then(function() {
           App.bus.dispatchEvent(new CustomEvent(App.EVENTS.TOAST_SHOW, {

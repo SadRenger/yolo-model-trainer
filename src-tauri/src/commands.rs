@@ -342,9 +342,9 @@ pub fn open_report(output_dir: String) -> Result<(), String> {
     Ok(())
 }
 
-/// Delete a training task — removes from history.json.
+/// Delete a training task — removes from history.json and deletes output directory.
 #[tauri::command]
-pub fn delete_task(task_id: String, state: State<'_, AppState>) -> Result<(), String> {
+pub fn delete_task(task_id: String) -> Result<(), String> {
     let history_path = std::path::Path::new("../output").join("history.json");
     let history_path = if history_path.exists() {
         history_path
@@ -361,17 +361,38 @@ pub fn delete_task(task_id: String, state: State<'_, AppState>) -> Result<(), St
     let mut records: Vec<serde_json::Value> =
         serde_json::from_str(&content).unwrap_or_else(|_| vec![]);
 
+    // Find and remove the record, capturing output_dir for file deletion
+    let mut output_dir = None;
     let before = records.len();
-    records.retain(|r| r.get("id").and_then(|v| v.as_str()) != Some(&task_id));
+    records.retain(|r| {
+        if r.get("id").and_then(|v| v.as_str()) == Some(&task_id) {
+            output_dir = r.get("output_dir").and_then(|v| v.as_str()).map(|s| s.to_string());
+            false
+        } else {
+            true
+        }
+    });
 
     if records.len() == before {
         return Err(format!("Task not found: {}", task_id));
     }
 
+    // Write updated history
     let json = serde_json::to_string_pretty(&records)
         .map_err(|e| format!("Failed to serialize: {}", e))?;
     std::fs::write(&history_path, json)
         .map_err(|e| format!("Failed to write history: {}", e))?;
+
+    // Delete the output directory (relative to project root)
+    if let Some(dir) = output_dir {
+        let dir_path = std::path::Path::new("..").join(&dir);
+        let dir_path = if dir_path.exists() { dir_path } else { std::path::Path::new(&dir).to_path_buf() };
+        if dir_path.exists() {
+            std::fs::remove_dir_all(&dir_path)
+                .map_err(|e| format!("Failed to delete output dir: {}", e))?;
+            log::info!("Deleted output directory: {}", dir_path.display());
+        }
+    }
 
     Ok(())
 }
