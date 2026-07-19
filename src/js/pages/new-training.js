@@ -10,6 +10,8 @@
     taskName: '',
     datasetPath: '',
     modelPath: '',
+    dsValid: false,
+    mdValid: false,
   };
   var _trainingCache = {
     state: 'form',        // 'form' | 'training' | 'complete'
@@ -236,6 +238,7 @@
             resultEl.className = 'valid-state valid-state--pass';
             resultEl.innerHTML = '✅ 校验通过 · ' + (result.image_count || 0) + ' 张图片 · ' + (result.class_count || 0) + ' 个类别';
             _dsValid = true;
+            _formCache.dsValid = true;
             updateStartButton();
             formView.querySelector('#btn-preview-dataset').style.display = '';
           } else {
@@ -247,6 +250,7 @@
           }
         }).catch(function(err) {
           _dsValid = false;
+          _formCache.dsValid = false;
           updateStartButton();
           resultEl.className = 'valid-state valid-state--fail';
           resultEl.innerHTML = '❌ 校验失败：' + (err.message || err);
@@ -270,6 +274,7 @@
             resultEl.className = 'valid-state valid-state--pass';
             resultEl.innerHTML = '✅ ' + (result.architecture || '模型') + ' · ' + (result.param_count || '?') + ' 参数 · ' + (result.file_size || '?');
             _mdValid = true;
+            _formCache.mdValid = true;
             updateStartButton();
           } else {
             _mdValid = false;
@@ -279,6 +284,7 @@
           }
         }).catch(function(err) {
           _mdValid = false;
+          _formCache.mdValid = false;
           updateStartButton();
           resultEl.className = 'valid-state valid-state--fail';
           resultEl.innerHTML = '❌ 校验失败：' + (err.message || err);
@@ -290,6 +296,21 @@
       var mdPath = formView.querySelector('#model-path');
       if (dsPath) dsPath.value = _formCache.datasetPath || '';
       if (mdPath) mdPath.value = _formCache.modelPath || '';
+      // Restore validation state
+      if (_formCache.dsValid) {
+        _dsValid = true;
+        updateStartButton();
+        // Re-show validation pass UI
+        var dsResult = formView.querySelector('#dataset-valid-result');
+        if (dsResult) { dsResult.className = 'valid-state valid-state--pass'; dsResult.innerHTML = '✅ 校验通过（已缓存）'; }
+        formView.querySelector('#btn-preview-dataset').style.display = '';
+      }
+      if (_formCache.mdValid) {
+        _mdValid = true;
+        updateStartButton();
+        var mdResult = formView.querySelector('#model-valid-result');
+        if (mdResult) { mdResult.className = 'valid-state valid-state--pass'; mdResult.innerHTML = '✅ 模型校验通过（已缓存）'; }
+      }
 
       // Restore cached training state
       if (_trainingCache.state === 'training') {
