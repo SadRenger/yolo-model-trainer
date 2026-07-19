@@ -477,7 +477,7 @@
             '<div class="form-group"><label class="form-label">训练轮数 (Epochs) <span data-tooltip="训练多少轮：轮数越多效果可能越好，但更耗时。建议 100~300 轮。">ⓘ</span></label><div class="slider-row"><input type="range" min="1" max="1000" value="100" /><input type="number" min="1" max="1000" value="100" /></div></div>' +
             '<div class="form-group"><label class="form-label">批次大小 (Batch Size) <span data-tooltip="每批处理图片数：显存不足时可调小。建议 8~32。">ⓘ</span></label><div class="slider-row"><input type="range" min="1" max="256" value="16" /><input type="number" min="1" max="256" value="16" /></div></div>' +
             '<div class="form-group"><label class="form-label">图像尺寸 <span data-tooltip="输入图片缩放到的尺寸（像素）。保持默认 640 即可。">ⓘ</span></label><div class="slider-row"><input type="range" min="320" max="1280" value="640" step="32" /><input type="number" min="320" max="1280" value="640" step="32" /></div></div>' +
-            '<div class="form-group"><label class="form-label">计算设备 <span data-tooltip="自动选择最优设备（优先 GPU）。也可手动指定。">ⓘ</span></label><select class="form-select"><option>auto (推荐)</option><option>CPU</option><option disabled>───</option><option>NVIDIA GeForce RTX 4070 Ti SUPER (16 GB)</option></select><span class="form-hint" style="margin-top:2px">可用显存: 14.2 GB / 16 GB</span></div>' +
+            '<div class="form-group"><label class="form-label">计算设备 <span data-tooltip="自动选择最优设备（优先 GPU）。也可手动指定。">ⓘ</span></label><select class="form-select" id="device-select"><option>auto (推荐)</option><option>CPU</option></select><span class="form-hint" style="margin-top:2px" id="vram-hint"></span></div>' +
           '</div>' +
         '</div>' +
         '<div id="collapsible-optimizer"></div>' +
@@ -521,6 +521,29 @@
         number.addEventListener('input', function() { range.value = number.value; });
       }
     });
+
+    // Dynamic GPU dropdown
+    var deviceSelect = form.querySelector('#device-select');
+    var vramHint = form.querySelector('#vram-hint');
+    if (deviceSelect && App._envCache && App._envCache.gpu && App._envCache.gpu.length > 0) {
+      // Add divider
+      var divider = document.createElement('option');
+      divider.disabled = true;
+      divider.textContent = '───';
+      deviceSelect.appendChild(divider);
+      // Add each GPU
+      App._envCache.gpu.forEach(function(gpu) {
+        var opt = document.createElement('option');
+        opt.textContent = gpu.name + ' (' + (gpu.vram_total || '?') + ')';
+        opt.value = gpu.name;
+        deviceSelect.appendChild(opt);
+      });
+      if (vramHint && App._envCache.gpu[0].vram_available) {
+        vramHint.textContent = '可用显存: ' + App._envCache.gpu[0].vram_available + ' / ' + App._envCache.gpu[0].vram_total;
+      }
+    } else if (vramHint) {
+      vramHint.textContent = '未检测到 GPU — 将使用 CPU';
+    }
 
     return form;
   }

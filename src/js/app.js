@@ -49,6 +49,7 @@
 
   App.api.checkEnvironment().then(function(env) {
     sidebar.setDiskSpace(env.disk.system_free + ' GB');
+    App._envCache = env; // cached for dynamic GPU dropdown
   });
 
   router.init();
