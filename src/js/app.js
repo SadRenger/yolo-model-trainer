@@ -57,8 +57,23 @@
 
   /* ── Global training lifecycle listeners (survive page switches) ── */
   if (window.__TAURI_INTERNALS__ && App.tauri) {
+    // Parse train:line for T-104 progress → sidebar percentage
+    App.tauri.listen('train:line', function(event) {
+      var payload = event.payload;
+      if (typeof payload === 'string') { try { payload = JSON.parse(payload); } catch(_) {} }
+      if (!payload || payload.code !== 'T-104') return;
+      var pct = payload.epoch && payload.total_epochs
+        ? Math.round((payload.epoch / payload.total_epochs) * 100) : 0;
+      App.bus.dispatchEvent(new CustomEvent(App.EVENTS.TRAINING_PROGRESS, {
+        detail: { epoch: payload.epoch, totalEpochs: payload.total_epochs, pct: pct }
+      }));
+    });
+
     App.tauri.listen('train:completed', function() {
-      App.bus.dispatchEvent(new CustomEvent(App.EVENTS.SIDEBAR_STATUS, { detail: { status: 'ready' } }));
+      App.bus.dispatchEvent(new CustomEvent(App.EVENTS.SIDEBAR_STATUS, { detail: { status: 'completed' } }));
+      setTimeout(function() {
+        App.bus.dispatchEvent(new CustomEvent(App.EVENTS.SIDEBAR_STATUS, { detail: { status: 'ready' } }));
+      }, 4000);
     });
     App.tauri.listen('train:stopped', function() {
       App.bus.dispatchEvent(new CustomEvent(App.EVENTS.SIDEBAR_STATUS, { detail: { status: 'ready' } }));
