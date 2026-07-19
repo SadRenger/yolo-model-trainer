@@ -229,6 +229,16 @@ impl ProcessManager {
                         }
                         let event_name = format!("{}:line", script_to_event(&scr));
                         let _ = handle_clone.emit(&event_name, &text);
+
+                        // Capture T-308 (training complete) for history.json
+                        if scr.contains("train") {
+                            if let Ok(val) = serde_json::from_str::<serde_json::Value>(&text) {
+                                if val.get("code").and_then(|c| c.as_str()) == Some("T-308") {
+                                    let _ = write_training_history(&tid, &val);
+                                }
+                            }
+                        }
+
                         log::debug!("[{}] stdout: {}", tid, &text[..text.len().min(120)]);
                     }
                     Err(e) => {
@@ -320,6 +330,57 @@ impl ProcessManager {
             Err(format!("No process with task_id: {}", task_id))
         }
     }
+}
+
+/// Write a training record to history.json when T-308 is received.
+fn write_training_history(task_id: &str, t308: &serde_json::Value) -> Result<(), String> {
+    let history_path = std::path::Path::new("../output").join("history.json");
+    // Also try project-root-relative (CWD varies between dev and prod)
+    let history_path = if history_path.parent().map_or(false, |p| p.exists()) {
+        history_path
+    } else {
+        std::path::Path::new("output").join("history.json")
+    };
+
+    // Read existing history or create new array
+    let mut records: Vec<serde_json::Value> = if history_path.exists() {
+        let content = std::fs::read_to_string(&history_path)
+            .unwrap_or_else(|_| "[]".to_string());
+        serde_json::from_str(&content).unwrap_or_else(|_| vec![])
+    } else {
+        vec![]
+    };
+
+    let now = chrono::Local::now().format("%Y-%m-%d %H:%M").to_string();
+    let output_dir = t308.get("output_dir").and_then(|v| v.as_str()).unwrap_or("");
+    let task_name = std::path::Path::new(output_dir)
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| task_id.to_string());
+    let record = serde_json::json!({
+        "id": task_id,
+        "name": task_name,
+        "date": now,
+        "status": "completed",
+        "mAP50": t308.get("best_mAP50").and_then(|v| v.as_f64()).unwrap_or(0.0),
+        "mAP50_95": t308.get("best_mAP50_95").and_then(|v| v.as_f64()).unwrap_or(0.0),
+        "total_time_s": t308.get("total_time_s").and_then(|v| v.as_f64()).unwrap_or(0.0),
+        "output_dir": output_dir,
+    });
+
+    records.push(record);
+
+    // Write back
+    if let Some(parent) = history_path.parent() {
+        std::fs::create_dir_all(parent).ok();
+    }
+    let json = serde_json::to_string_pretty(&records)
+        .map_err(|e| format!("Failed to serialize history: {}", e))?;
+    std::fs::write(&history_path, json)
+        .map_err(|e| format!("Failed to write history: {}", e))?;
+
+    log::info!("Training history updated: {}", history_path.display());
+    Ok(())
 }
 
 /// Map a Python script name to a Tauri event name prefix (without suffix).

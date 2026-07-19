@@ -326,10 +326,13 @@ pub fn run_inference(
 
 #[tauri::command]
 pub fn get_task_history() -> Result<serde_json::Value, String> {
-    // Read history.json from output directory
-    let output_dir = std::env::var("YOLO_OUTPUT_DIR")
-        .unwrap_or_else(|_| "output".to_string());
-    let path = std::path::Path::new(&output_dir).join("history.json");
+    // Try ../output/ (Rust CWD = src-tauri/) first, then output/ (project root)
+    let path = std::path::Path::new("../output").join("history.json");
+    let path = if path.exists() {
+        path
+    } else {
+        std::path::Path::new("output").join("history.json")
+    };
 
     if !path.exists() {
         return Ok(serde_json::json!([]));
@@ -337,10 +340,13 @@ pub fn get_task_history() -> Result<serde_json::Value, String> {
 
     let content =
         std::fs::read_to_string(&path).map_err(|e| format!("Failed to read history: {}", e))?;
-    let history: serde_json::Value =
-        serde_json::from_str(&content).map_err(|e| format!("Failed to parse history: {}", e))?;
+    let mut history: Vec<serde_json::Value> =
+        serde_json::from_str(&content).unwrap_or_else(|_| vec![]);
 
-    Ok(history)
+    // Sort by date descending (newest first)
+    history.reverse();
+
+    Ok(serde_json::json!(history))
 }
 
 #[tauri::command]
