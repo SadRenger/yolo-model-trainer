@@ -133,7 +133,7 @@ def on_train_epoch_end(trainer):
     cmd = _check_control_file()
     if cmd == "stop":
         emit("T-207", epoch=epoch, message=f"训练已停止于 epoch {epoch}")
-        sys.exit(0)  # immediate graceful exit — best.pt/last.pt preserved
+        sys.exit(2)  # exit code 2 = user-stopped, distinct from 0=success 1=error
     elif cmd == "pause":
         # Pause: skip further epoch processing but let Ultralytics continue loop
         emit("T-203", epoch=epoch, message=f"训练已暂停于 epoch {epoch}")

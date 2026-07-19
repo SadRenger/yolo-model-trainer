@@ -23,7 +23,7 @@
         '<div class="card__header"><span class="card__header-icon">📁</span><h2 class="card__title">全局配置</h2></div>' +
         '<div class="card__body">' +
           '<div class="form-grid">' +
-            '<div class="form-group" style="grid-column:1/-1"><label class="form-label">默认输出目录</label><div style="display:flex;gap:8px"><input type="text" class="form-input" value="C:\\Users\\User\\YOLO_Output" style="flex:1" /><button class="btn btn--secondary btn--sm">浏览</button></div></div>' +
+            '<div class="form-group" style="grid-column:1/-1"><label class="form-label">默认输出目录</label><div style="display:flex;gap:8px"><input type="text" class="form-input" value="output" style="flex:1" id="settings-output-dir" /><button class="btn btn--secondary btn--sm" id="btn-browse-output">浏览</button></div></div>' +
             '<div class="form-group"><label class="form-label">日志级别</label><select class="form-select"><option>详细 (推荐)</option><option>标准</option><option>简洁</option></select></div>' +
           '</div>' +
         '</div>' +
@@ -57,6 +57,16 @@
           '</tbody></table>' +
         '</div>';
       page.appendChild(guideCard);
+
+      // ── Wire browse button ──
+      page.querySelector('#btn-browse-output').addEventListener('click', function() {
+        if (!window.__TAURI_INTERNALS__ || !App.tauri) return;
+        App.tauri.invoke('open_folder_dialog').then(function(path) {
+          if (path) {
+            page.querySelector('#settings-output-dir').value = path;
+          }
+        });
+      });
 
       // Load environment
       var envList = envCard.querySelector('#env-status-list');

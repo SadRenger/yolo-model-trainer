@@ -260,28 +260,28 @@ impl ProcessManager {
             match child.wait() {
                 Ok(status) => {
                     let code = status.code().unwrap_or(-1);
-                    if status.success() {
-                        let payload = serde_json::json!({
-                            "code": "R-003",
-                            "task_id": tid,
-                            "exit_code": code,
-                        });
-                        let _ = handle_clone.emit(
-                            &format!("{}:completed", script_to_event(&scr)),
-                            &payload.to_string(),
-                        );
-                        log::info!("[{}] process exited with code {}", tid, code);
+                    let event_type = if code == 0 {
+                        "completed"
+                    } else if code == 2 {
+                        "stopped"  // user-initiated stop
                     } else {
-                        let payload = serde_json::json!({
-                            "code": "R-003E",
-                            "task_id": tid,
-                            "exit_code": code,
-                            "stderr": stderr_text,
-                        });
-                        let _ = handle_clone.emit(
-                            &format!("{}:error", script_to_event(&scr)),
-                            &payload.to_string(),
-                        );
+                        "error"
+                    };
+                    let payload = serde_json::json!({
+                        "code": if code == 0 { "R-003" } else { "R-003E" },
+                        "task_id": tid,
+                        "exit_code": code,
+                        "stderr": stderr_text,
+                    });
+                    let _ = handle_clone.emit(
+                        &format!("{}:{}", script_to_event(&scr), event_type),
+                        &payload.to_string(),
+                    );
+                    if code == 0 {
+                        log::info!("[{}] process completed", tid);
+                    } else if code == 2 {
+                        log::info!("[{}] process stopped by user", tid);
+                    } else {
                         log::error!("[{}] process FAILED (exit {}): {}", tid, code, stderr_text);
                     }
                 }

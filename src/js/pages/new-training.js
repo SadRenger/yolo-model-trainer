@@ -104,6 +104,12 @@
           }
         }).then(function(fn) { _trainUnlistens.push(fn); });
 
+        // Process stopped by user
+        App.tauri.listen('train:stopped', function(event) {
+          resetToForm(page, formView, trainingView, completeView);
+          App.bus.dispatchEvent(new CustomEvent(App.EVENTS.SIDEBAR_STATUS, { detail: { status: 'ready' } }));
+        }).then(function(fn) { _trainUnlistens.push(fn); });
+
         // Process error/crash
         App.tauri.listen('train:error', function(event) {
           var payload = event.payload;
