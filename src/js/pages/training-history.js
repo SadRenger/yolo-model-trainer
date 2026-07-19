@@ -65,8 +65,8 @@
     filterBar.className = 'filter-bar';
     filterBar.innerHTML =
       '<div class="form-group" style="flex:1;min-width:180px"><input type="text" class="form-input" id="history-search" placeholder="🔍 搜索任务…" /></div>' +
-      '<select class="form-select" style="width:auto" id="history-status"><option value="全部">全部状态 ▾</option><option value="completed">已完成</option><option value="stopped">已停止</option><option value="error">异常中断</option></select>' +
-      '<select class="form-select" style="width:auto" id="history-sort"><option value="time">按时间 ▾</option><option value="name">按名称</option></select>';
+      '<select class="form-select" style="width:auto" id="history-status"><option value="全部">全部状态</option><option value="completed">已完成</option><option value="stopped">已停止</option><option value="error">异常中断</option></select>' +
+      '<select class="form-select" style="width:auto" id="history-sort"><option value="time">按时间</option><option value="name">按名称</option></select>';
     view.appendChild(filterBar);
 
     var tableWrapper = document.createElement('div');
