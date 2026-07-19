@@ -613,13 +613,16 @@
     var wasAtBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 40;
     var line = document.createElement('div');
     line.className = 'log-terminal__line';
-    line.innerHTML = '<span class="log-terminal__line--time">' + new Date().toLocaleTimeString() + '</span> ' + msg;
+    var timeStr = new Date().toLocaleTimeString();
+    line.innerHTML = '<span class="log-terminal__line--time">' + timeStr + '</span> ' + msg;
     log.appendChild(line);
     if (wasAtBottom) {
       log.scrollTop = log.scrollHeight;
     }
-    // Show "back to bottom" hint if not at bottom
     updateScrollHint(trainingView, !wasAtBottom);
+    // Push to cache so logs survive page switches
+    _trainingCache.logs.push({ time: timeStr, text: msg });
+    if (_trainingCache.logs.length > 100) _trainingCache.logs.shift();
   }
 
   function updateScrollHint(trainingView, show) {
