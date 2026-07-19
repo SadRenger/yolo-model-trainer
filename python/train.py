@@ -136,15 +136,13 @@ def on_train_epoch_end(trainer):
 
     # Check control file signal (replaces stdin pipe)
     cmd = _check_control_file()
-    if cmd == "pause":
-        emit("T-202", message="当前 epoch 完成后暂停")
-        emit("T-203", epoch=epoch, message=f"训练已暂停于 epoch {epoch}")
-        _train_paused.set()
-        _train_paused.wait()  # block until resume
-        emit("T-205", message="训练已恢复")
-    elif cmd == "stop":
+    if cmd == "stop":
         emit("T-207", epoch=epoch, message=f"训练已停止于 epoch {epoch}")
-        _train_stopped.set()
+        sys.exit(0)  # immediate graceful exit — best.pt/last.pt preserved
+    elif cmd == "pause":
+        # Pause: skip further epoch processing but let Ultralytics continue loop
+        emit("T-203", epoch=epoch, message=f"训练已暂停于 epoch {epoch}")
+        return  # skip metrics update this epoch, check again next round
 
 
 def run_training(args) -> dict:

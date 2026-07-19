@@ -181,10 +181,11 @@ pub fn start_training(
         }
     }
 
-    // File-based control signal (replaces stdin pipe)
+    // File-based control signal (replaces stdin pipe).
+    // Python CWD = project root (set via cmd.current_dir("..")).
     let control_file = format!("output/.control_{}", task_id);
     args.push("--control-file".into());
-    args.push(control_file.clone());
+    args.push(control_file);
 
     state.process_manager.spawn_python(
         &task_id,
@@ -198,9 +199,10 @@ pub fn start_training(
 }
 
 /// Write a control command to the training process's signal file.
+/// Rust CWD = src-tauri/, Python CWD = project root (..), so use ../output/.
 fn write_control_signal(task_id: &str, command: &str) -> Result<(), String> {
-    let control_file = format!("output/.control_{}", task_id);
-    std::fs::create_dir_all("output").map_err(|e| format!("Cannot create output dir: {}", e))?;
+    let control_file = format!("../output/.control_{}", task_id);
+    std::fs::create_dir_all("../output").map_err(|e| format!("Cannot create output dir: {}", e))?;
     std::fs::write(&control_file, format!("{}\n", command))
         .map_err(|e| format!("Cannot write control file: {}", e))?;
     Ok(())
