@@ -59,8 +59,11 @@
 
       // ── Train event listeners (persistent, for real Tauri training) ──
       var _trainUnlistens = [];
+      var _trainListenersActive = false;
       function listenTrainEvents() {
+        if (_trainListenersActive) return; // prevent double registration
         if (!window.__TAURI_INTERNALS__ || !App.tauri) return;
+        _trainListenersActive = true;
 
         // Per-line JSONL events (code-based matching)
         App.tauri.listen('train:line', function(event) {
@@ -428,9 +431,10 @@
         var md = formView.querySelector('#model-path');
         if (ds) _formCache.datasetPath = ds.value;
         if (md) _formCache.modelPath = md.value;
-        // Unlisten train events (will re-listen on next mount via listenTrainEvents)
+        // Unlisten train events
         _trainUnlistens.forEach(function(fn) { try { fn(); } catch(e) {} });
         _trainUnlistens = [];
+        _trainListenersActive = false;
         page.remove();
       };
     }
