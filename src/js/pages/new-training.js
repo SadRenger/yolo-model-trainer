@@ -234,19 +234,36 @@
           return;
         }
         App.api.checkDataset(path).then(function(result) {
-          if (result.valid) {
+          var issues = result.errors || [];
+          var errs = issues.filter(function(e) { return e.level === 'error'; });
+          var warns = issues.filter(function(e) { return e.level === 'warning'; });
+
+          if (result.valid || errs.length === 0) {
             resultEl.className = 'valid-state valid-state--pass';
-            resultEl.innerHTML = '✅ 校验通过 · ' + (result.image_count || 0) + ' 张图片 · ' + (result.class_count || 0) + ' 个类别';
+            var msg = '✅ 校验通过 · ' + (result.image_count || 0) + ' 张图片 · ' + (result.class_count || 0) + ' 个类别';
+            if (warns.length > 0) {
+              msg += '<br>⚠️ ' + warns.map(function(w) { return w.message; }).join('；');
+              if (errs.length === 0) resultEl.className = 'valid-state valid-state--warn';
+            }
+            resultEl.innerHTML = msg;
             _dsValid = true;
             _formCache.dsValid = true;
             updateStartButton();
             formView.querySelector('#btn-preview-dataset').style.display = '';
           } else {
             _dsValid = false;
+            _formCache.dsValid = false;
             updateStartButton();
-            resultEl.className = 'valid-state valid-state--fail';
-            var errors = (result.errors || []).map(function(e) { return e.message; }).join('；');
-            resultEl.innerHTML = '❌ 校验失败：' + (errors || '数据集格式不正确');
+            var lines = [];
+            if (errs.length > 0) {
+              resultEl.className = 'valid-state valid-state--fail';
+              lines.push('❌ ' + errs.map(function(e) { return e.message; }).join('；'));
+            }
+            if (warns.length > 0) {
+              if (errs.length === 0) resultEl.className = 'valid-state valid-state--warn';
+              lines.push('⚠️ ' + warns.map(function(w) { return w.message; }).join('；'));
+            }
+            resultEl.innerHTML = lines.join('<br>') || '数据集格式不正确';
           }
         }).catch(function(err) {
           _dsValid = false;

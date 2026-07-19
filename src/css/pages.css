@@ -57,6 +57,11 @@
   color: var(--color-danger);
 }
 
+.valid-state--warn {
+  background: rgba(210, 153, 34, 0.1);
+  color: var(--color-warning);
+}
+
 .valid-state__icon {
   font-size: 16px;
 }
