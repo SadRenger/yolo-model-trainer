@@ -325,19 +325,16 @@ pub fn run_inference(
    ═══════════════════════════════════════════════ */
 
 /// Open the training report HTML in the default browser.
+/// output_dir is relative to project root; Rust CWD is src-tauri/.
 #[tauri::command]
 pub fn open_report(output_dir: String) -> Result<(), String> {
-    let report_path = std::path::Path::new(&output_dir).join("report.html");
+    let report_path = std::path::Path::new("..").join(&output_dir).join("report.html");
+    let report_path = if report_path.exists() {
+        report_path
+    } else {
+        std::path::Path::new(&output_dir).join("report.html")
+    };
     if !report_path.exists() {
-        // Try weights/results.csv location — Ultralytics structure
-        let alt = std::path::Path::new(&output_dir).join("weights").join("..").join("report.html");
-        let alt = std::path::Path::new(&output_dir).parent().map(|p| p.join("report.html"));
-        if let Some(p) = alt {
-            if p.exists() {
-                opener::open(p).map_err(|e| format!("Failed to open: {}", e))?;
-                return Ok(());
-            }
-        }
         return Err(format!("Report not found: {}", report_path.display()));
     }
     opener::open(report_path.to_string_lossy().to_string())
@@ -395,9 +392,16 @@ pub async fn save_file_dialog(
 }
 
 /// Copy a file from source to destination.
+/// src is relative to project root; Rust CWD is src-tauri/.
 #[tauri::command]
 pub fn copy_file(src: String, dst: String) -> Result<(), String> {
-    std::fs::copy(&src, &dst)
+    // Try ../ prefix first (project root), then raw path
+    let src_path = std::path::Path::new("..").join(&src);
+    let src_path = if src_path.exists() { src_path } else { std::path::Path::new(&src).to_path_buf() };
+    if !src_path.exists() {
+        return Err(format!("Source not found: {}", src_path.display()));
+    }
+    std::fs::copy(&src_path, &dst)
         .map_err(|e| format!("Failed to copy: {}", e))?;
     Ok(())
 }
