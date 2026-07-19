@@ -62,20 +62,20 @@ pub fn preview_dataset(
     // Run synchronously via process_manager but capture stdout directly.
     // This avoids Tauri event race conditions for fast scripts.
     let python_exe = state.process_manager.find_python()?;
-    // CWD = project root (set via current_dir("..")), scripts at ./python/
-    let script_path = std::path::Path::new("python").join("preview_dataset.py");
-    let script_path = if script_path.exists() {
-        script_path
-    } else {
-        std::path::Path::new("../python").join("preview_dataset.py")
-    };
-    if !script_path.exists() {
-        return Err(format!("Script not found: {}", script_path.display()));
+    // Check path from src-tauri/ (../python/), pass relative to child CWD=project root (python/)
+    let check_path = std::path::Path::new("../python").join("preview_dataset.py");
+    if !check_path.exists() {
+        let alt = std::path::Path::new("python").join("preview_dataset.py");
+        if !alt.exists() {
+            return Err(format!("Script not found: {:?}", check_path));
+        }
     }
+    // Always pass as python/preview_dataset.py — child CWD is project root
+    let script_arg = "python/preview_dataset.py";
 
     let output = std::process::Command::new(&python_exe)
         .arg("-u")
-        .arg(script_path.to_string_lossy().to_string())
+        .arg(&script_arg)
         .arg("--dataset-path")
         .arg(&path)
         .arg("--max-count")
