@@ -112,9 +112,7 @@
             result.valid = payload.valid || false;
             result.image_count = payload.image_count || 0;
             result.class_count = payload.class_count || 0;
-            if (payload.class_count) {
-              result.classes = (new Array(payload.class_count)).fill('').map(function(_,i) { return 'class_' + (i+1); });
-            }
+            result.classes = payload.categories || [];
           }
           // Capture any error/warning messages
           if (code && code.indexOf('E') > -1) {

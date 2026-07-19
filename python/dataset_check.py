@@ -153,9 +153,11 @@ def check_dataset(dataset_path: str) -> dict:
 
     if valid:
         emit("D-007", valid=True, image_count=len(img_files), class_count=len(categories),
+             categories=categories,
              message=f"校验通过 · {len(img_files)} 张图片 · {len(categories)} 个类别")
     else:
         emit("D-007", valid=False, errors=len(errors), warnings=len(warnings),
+             categories=categories,
              message=f"校验未通过 · {len(errors)} 个错误 · {len(warnings)} 个警告")
 
     return result
