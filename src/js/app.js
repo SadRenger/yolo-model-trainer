@@ -55,6 +55,19 @@
   router.init();
   sidebar.setActiveByPage(store.get('currentPage'));
 
+  /* ── Global training lifecycle listeners (survive page switches) ── */
+  if (window.__TAURI_INTERNALS__ && App.tauri) {
+    App.tauri.listen('train:completed', function() {
+      App.bus.dispatchEvent(new CustomEvent(App.EVENTS.SIDEBAR_STATUS, { detail: { status: 'ready' } }));
+    });
+    App.tauri.listen('train:stopped', function() {
+      App.bus.dispatchEvent(new CustomEvent(App.EVENTS.SIDEBAR_STATUS, { detail: { status: 'ready' } }));
+    });
+    App.tauri.listen('train:error', function() {
+      App.bus.dispatchEvent(new CustomEvent(App.EVENTS.SIDEBAR_STATUS, { detail: { status: 'ready' } }));
+    });
+  }
+
   /* ── Expose for debugging ── */
   window.__app = { store: store, router: router, sidebar: sidebar, toastContainer: toastContainer, modalManager: modalManager, tooltipManager: tooltipManager };
   // Disable browser autocomplete on all inputs (desktop app, not web)
