@@ -58,21 +58,47 @@ pub fn preview_dataset(
     path: String,
     state: State<'_, AppState>,
     app_handle: tauri::AppHandle,
-) -> Result<String, String> {
-    let task_id = format!("preview-{}", std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis());
+) -> Result<serde_json::Value, String> {
+    // Run synchronously via process_manager but capture stdout directly.
+    // This avoids Tauri event race conditions for fast scripts.
+    let python_exe = state.process_manager.find_python()?;
+    let script_path = std::path::Path::new("../python").join("preview_dataset.py");
+    let script_path = if script_path.exists() {
+        script_path
+    } else {
+        std::path::Path::new("python").join("preview_dataset.py")
+    };
+    if !script_path.exists() {
+        return Err(format!("Script not found: {}", script_path.display()));
+    }
 
-    state.process_manager.spawn_python(
-        &task_id,
-        "preview_dataset.py",
-        &["--dataset-path".into(), path, "--max-count".into(), "20".into()],
-        false,
-        app_handle,
-    )?;
+    let output = std::process::Command::new(&python_exe)
+        .arg("-u")
+        .arg(script_path.to_string_lossy().to_string())
+        .arg("--dataset-path")
+        .arg(&path)
+        .arg("--max-count")
+        .arg("20")
+        .current_dir("..")
+        .output()
+        .map_err(|e| format!("Failed to run preview: {}", e))?;
 
-    Ok(task_id)
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("Preview failed: {}", stderr));
+    }
+
+    // Parse the last JSONL line (P-001) for preview data
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    for line in stdout.lines() {
+        if let Ok(val) = serde_json::from_str::<serde_json::Value>(line) {
+            if val.get("code").and_then(|c| c.as_str()) == Some("P-001") {
+                return Ok(val);
+            }
+        }
+    }
+
+    Err("No preview data found in output".into())
 }
 
 /* ═══════════════════════════════════════════════
