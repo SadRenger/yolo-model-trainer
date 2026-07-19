@@ -55,7 +55,13 @@
     var queryStr = Object.keys(merged).map(function(k) {
       return encodeURIComponent(k) + '=' + encodeURIComponent(merged[k]);
     }).join('&');
-    window.location.hash = queryStr ? parsed.path + '?' + queryStr : parsed.path;
+    var newHash = queryStr ? parsed.path + '?' + queryStr : parsed.path;
+    if (newHash === window.location.hash) {
+      // Same hash — browser won't fire hashchange, force re-render
+      this._handleRoute();
+    } else {
+      window.location.hash = newHash;
+    }
   };
 
   App.Router.prototype.getCurrentRoute = function() {

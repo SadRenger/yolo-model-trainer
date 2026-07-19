@@ -366,8 +366,26 @@
 
       // Restore cached training state
       if (_trainingCache.state === 'training') {
-        showTrainingState(page, formView, trainingView);
-        // Immediately restore sidebar progress
+        var hasTauri = !!(window.__TAURI_INTERNALS__ && App.tauri);
+        // Check if training completed while user was away
+        if (hasTauri && _trainingCache.taskId) {
+          App.tauri.invoke('check_task_status', { taskId: _trainingCache.taskId }).then(function(status) {
+            if (status === 'completed') {
+              _trainingCache.state = 'complete';
+              showCompleteState(page, formView, trainingView, completeView);
+            } else {
+              showTrainingState(page, formView, trainingView);
+              // Re-register train event listeners for live updates
+              listenTrainEvents();
+            }
+          });
+        } else {
+          showTrainingState(page, formView, trainingView);
+          // Mock mode: restart interval if not Tauri
+          if (!hasTauri) {
+            restartProgressInterval(trainingView, _trainingCache.epoch);
+          }
+        }
         var cachePct = Math.round((_trainingCache.epoch / _trainingCache.totalEpochs) * 100);
         App.bus.dispatchEvent(new CustomEvent(App.EVENTS.TRAINING_PROGRESS, {
           detail: { epoch: _trainingCache.epoch, totalEpochs: _trainingCache.totalEpochs, pct: cachePct }

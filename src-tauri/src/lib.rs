@@ -31,6 +31,7 @@ pub fn run() {
             commands::resume_training,
             commands::stop_training,
             commands::run_inference,
+            commands::check_task_status,
             commands::open_report,
             commands::delete_task,
             commands::save_file_dialog,

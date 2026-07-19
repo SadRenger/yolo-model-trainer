@@ -427,6 +427,34 @@ pub fn copy_file(src: String, dst: String) -> Result<(), String> {
     Ok(())
 }
 
+/// Check if a training task is still alive by looking for the control file.
+/// Returns "running" if control file exists (process still polling), "completed" if
+/// best.pt exists but control file doesn't, "unknown" if neither.
+#[tauri::command]
+pub fn check_task_status(task_id: String) -> Result<String, String> {
+    let control_file = std::path::Path::new("../output")
+        .join(format!(".control_{}", task_id));
+    if control_file.exists() {
+        return Ok("running".into());
+    }
+    // Check if best.pt was produced (training completed normally)
+    let history_path = std::path::Path::new("../output").join("history.json");
+    if history_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(&history_path) {
+            if let Ok(records) = serde_json::from_str::<Vec<serde_json::Value>>(&content) {
+                let found = records.iter().any(|r| {
+                    r.get("id").and_then(|v| v.as_str()) == Some(&task_id)
+                        && r.get("status").and_then(|v| v.as_str()) == Some("completed")
+                });
+                if found {
+                    return Ok("completed".into());
+                }
+            }
+        }
+    }
+    Ok("unknown".into())
+}
+
 /* ═══════════════════════════════════════════════
    File System / Settings
    ═══════════════════════════════════════════════ */
