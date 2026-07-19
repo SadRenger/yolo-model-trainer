@@ -321,6 +321,88 @@ pub fn run_inference(
 }
 
 /* ═══════════════════════════════════════════════
+   Training History Actions
+   ═══════════════════════════════════════════════ */
+
+/// Open the training report HTML in the default browser.
+#[tauri::command]
+pub fn open_report(output_dir: String) -> Result<(), String> {
+    let report_path = std::path::Path::new(&output_dir).join("report.html");
+    if !report_path.exists() {
+        // Try weights/results.csv location — Ultralytics structure
+        let alt = std::path::Path::new(&output_dir).join("weights").join("..").join("report.html");
+        let alt = std::path::Path::new(&output_dir).parent().map(|p| p.join("report.html"));
+        if let Some(p) = alt {
+            if p.exists() {
+                opener::open(p).map_err(|e| format!("Failed to open: {}", e))?;
+                return Ok(());
+            }
+        }
+        return Err(format!("Report not found: {}", report_path.display()));
+    }
+    opener::open(report_path.to_string_lossy().to_string())
+        .map_err(|e| format!("Failed to open report: {}", e))?;
+    Ok(())
+}
+
+/// Delete a training task — removes from history.json.
+#[tauri::command]
+pub fn delete_task(task_id: String, state: State<'_, AppState>) -> Result<(), String> {
+    let history_path = std::path::Path::new("../output").join("history.json");
+    let history_path = if history_path.exists() {
+        history_path
+    } else {
+        std::path::Path::new("output").join("history.json")
+    };
+
+    if !history_path.exists() {
+        return Err("No history file found".into());
+    }
+
+    let content = std::fs::read_to_string(&history_path)
+        .map_err(|e| format!("Failed to read history: {}", e))?;
+    let mut records: Vec<serde_json::Value> =
+        serde_json::from_str(&content).unwrap_or_else(|_| vec![]);
+
+    let before = records.len();
+    records.retain(|r| r.get("id").and_then(|v| v.as_str()) != Some(&task_id));
+
+    if records.len() == before {
+        return Err(format!("Task not found: {}", task_id));
+    }
+
+    let json = serde_json::to_string_pretty(&records)
+        .map_err(|e| format!("Failed to serialize: {}", e))?;
+    std::fs::write(&history_path, json)
+        .map_err(|e| format!("Failed to write history: {}", e))?;
+
+    Ok(())
+}
+
+/// Open a save file dialog and return the chosen path.
+#[tauri::command]
+pub async fn save_file_dialog(
+    app_handle: tauri::AppHandle,
+    default_name: String,
+) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+    let path = app_handle
+        .dialog()
+        .file()
+        .set_file_name(&default_name)
+        .blocking_save_file();
+    Ok(path.map(|p| p.to_string()))
+}
+
+/// Copy a file from source to destination.
+#[tauri::command]
+pub fn copy_file(src: String, dst: String) -> Result<(), String> {
+    std::fs::copy(&src, &dst)
+        .map_err(|e| format!("Failed to copy: {}", e))?;
+    Ok(())
+}
+
+/* ═══════════════════════════════════════════════
    File System / Settings
    ═══════════════════════════════════════════════ */
 
