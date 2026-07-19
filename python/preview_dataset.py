@@ -93,8 +93,8 @@ def draw_boxes(image: np.ndarray, label_path: Path, class_names: list) -> np.nda
     return image
 
 
-def resize_preview(image: np.ndarray, max_width: int = 240) -> np.ndarray:
-    """Resize image to thumbnail size for IPC-friendly base64 encoding."""
+def resize_preview(image: np.ndarray, max_width: int = 600) -> np.ndarray:
+    """Resize image to preview size for IPC-friendly base64 encoding."""
     h, w = image.shape[:2]
     if w > max_width:
         ratio = max_width / w
@@ -103,8 +103,8 @@ def resize_preview(image: np.ndarray, max_width: int = 240) -> np.ndarray:
 
 
 def encode_thumbnail(image: np.ndarray) -> str:
-    """Encode a small preview image as base64 data URL."""
-    _, buffer = cv2.imencode(".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, 50])
+    """Encode a preview image as base64 data URL."""
+    _, buffer = cv2.imencode(".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, 70])
     import base64
     return "data:image/jpeg;base64," + base64.b64encode(buffer).decode("utf-8")
 
