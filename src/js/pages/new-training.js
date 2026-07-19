@@ -809,7 +809,7 @@
     formView.style.display = 'none';
     trainingView.style.display = 'none';
     completeView.style.display = '';
-    App.bus.dispatchEvent(new CustomEvent(App.EVENTS.SIDEBAR_STATUS, { detail: { status: 'ready' } }));
+    App.bus.dispatchEvent(new CustomEvent(App.EVENTS.SIDEBAR_STATUS, { detail: { status: 'completed' } }));
     // Inject real training results into the DOM
     var mAP50 = _trainingCache.best_mAP50 || 0;
     var mAP95 = _trainingCache.best_mAP50_95 || 0;

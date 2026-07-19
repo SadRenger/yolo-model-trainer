@@ -71,9 +71,6 @@
 
     App.tauri.listen('train:completed', function() {
       App.bus.dispatchEvent(new CustomEvent(App.EVENTS.SIDEBAR_STATUS, { detail: { status: 'completed' } }));
-      setTimeout(function() {
-        App.bus.dispatchEvent(new CustomEvent(App.EVENTS.SIDEBAR_STATUS, { detail: { status: 'ready' } }));
-      }, 4000);
     });
     App.tauri.listen('train:stopped', function() {
       App.bus.dispatchEvent(new CustomEvent(App.EVENTS.SIDEBAR_STATUS, { detail: { status: 'ready' } }));
