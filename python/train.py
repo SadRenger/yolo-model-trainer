@@ -10,10 +10,7 @@ Usage: python train.py --dataset-path <path> --model-path <path> --epochs 100 ..
 import sys
 import os
 import argparse
-import json
 import time
-import signal
-import threading
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -22,8 +19,6 @@ from engine.protocol import emit
 # ── Globals for file-based control ──
 _control_file = None       # path to control signal file
 _control_mtime = 0         # last modification time we processed
-_train_paused = threading.Event()
-_train_stopped = threading.Event()
 
 
 def _check_control_file():
@@ -281,11 +276,6 @@ def run_training(args) -> dict:
     elapsed = time.time() - t_start
 
     # ── Phase 3-4: Completion ──
-
-    # Check if stopped
-    if _train_stopped.is_set():
-        emit("T-207", message="训练已停止，产出文件已保留")
-        return {"status": "stopped", "output_dir": str(output_dir)}
 
     # Extract final metrics
     best_mAP50 = round(_safe_float(results.results_dict.get("metrics/mAP50(B)")), 4)
