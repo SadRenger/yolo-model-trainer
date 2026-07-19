@@ -22,6 +22,7 @@ pub fn run() {
             commands::open_folder_dialog,
             commands::open_file_dialog,
             commands::test_python,
+            commands::preview_dataset,
             commands::check_environment,
             commands::check_dataset,
             commands::check_model,

@@ -50,6 +50,32 @@ pub async fn open_file_dialog(
 }
 
 /* ═══════════════════════════════════════════════
+   Dataset Preview
+   ═══════════════════════════════════════════════ */
+
+#[tauri::command]
+pub fn preview_dataset(
+    path: String,
+    state: State<'_, AppState>,
+    app_handle: tauri::AppHandle,
+) -> Result<String, String> {
+    let task_id = format!("preview-{}", std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis());
+
+    state.process_manager.spawn_python(
+        &task_id,
+        "preview_dataset.py",
+        &["--dataset-path".into(), path, "--max-count".into(), "20".into()],
+        false,
+        app_handle,
+    )?;
+
+    Ok(task_id)
+}
+
+/* ═══════════════════════════════════════════════
    Test Command (minimal Python — pipe diagnostic)
    ═══════════════════════════════════════════════ */
 

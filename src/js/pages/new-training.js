@@ -221,6 +221,35 @@
         });
       });
 
+      // Dataset preview
+      formView.querySelector('#btn-preview-dataset').addEventListener('click', function() {
+        var dsEl = formView.querySelector('#dataset-path');
+        var path = dsEl ? dsEl.value.trim() : '';
+        if (!path) {
+          App.bus.dispatchEvent(new CustomEvent(App.EVENTS.TOAST_SHOW, {
+            detail: { type: 'warning', title: '无法预览', message: '请先选择数据集路径' }
+          }));
+          return;
+        }
+        App.bus.dispatchEvent(new CustomEvent(App.EVENTS.TOAST_SHOW, {
+          detail: { type: 'info', title: '正在生成预览…', message: '最多 20 张，请稍候' }
+        }));
+        App.api.previewDataset(path).then(function(result) {
+          var previews = result.previews || [];
+          if (previews.length === 0) {
+            App.bus.dispatchEvent(new CustomEvent(App.EVENTS.TOAST_SHOW, {
+              detail: { type: 'warning', title: '无预览', message: '未找到可预览的图片' }
+            }));
+            return;
+          }
+          showPreviewModal(page, previews);
+        }).catch(function(err) {
+          App.bus.dispatchEvent(new CustomEvent(App.EVENTS.TOAST_SHOW, {
+            detail: { type: 'error', title: '预览失败', message: err.message || String(err) }
+          }));
+        });
+      });
+
       // Dataset validation
       formView.querySelector('#btn-validate-dataset').addEventListener('click', function() {
         var resultEl = formView.querySelector('#dataset-valid-result');
@@ -538,6 +567,96 @@
   }
 
   /* ═══════════ HELPERS ═══════════ */
+
+  function showPreviewModal(page, previews) {
+    var currentIndex = 0;
+    var overlay = document.createElement('div');
+    overlay.className = 'modal-overlay active';
+    overlay.style.zIndex = '10000';
+
+    var modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.maxWidth = '900px';
+    modal.style.maxHeight = '90vh';
+    modal.style.overflowY = 'auto';
+
+    var total = previews.length;
+    var currentImg = previews[0];
+
+    function renderView() {
+      var p = previews[currentIndex];
+      modal.innerHTML =
+        '<div class="modal__header">' +
+          '<span class="modal__icon">📷</span>' +
+          '<h2 class="modal__title">数据集预览 — ' + p.filename + ' (' + (currentIndex + 1) + '/' + total + ')</h2>' +
+          '<span style="font-size:var(--fs-caption);color:var(--text-secondary)">' + (p.detection_count || 0) + ' 个标注 · ' + (p.classes || []).join(', ') + '</span>' +
+          '<button class="modal__close-btn btn--icon close-preview" aria-label="关闭">&times;</button>' +
+        '</div>' +
+        '<div class="modal__body" style="text-align:center">' +
+          // Navigation
+          '<div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:12px">' +
+            '<button class="btn btn--ghost btn--sm prev-btn" ' + (currentIndex === 0 ? 'disabled' : '') + '>◀ 上一张</button>' +
+            '<span style="font-size:var(--fs-caption);color:var(--text-muted)">' + (currentIndex + 1) + ' / ' + total + '</span>' +
+            '<button class="btn btn--ghost btn--sm next-btn" ' + (currentIndex === total - 1 ? 'disabled' : '') + '>下一张 ▶</button>' +
+          '</div>' +
+          // Main image
+          '<img src="' + p.base64 + '" style="max-width:100%;max-height:55vh;border-radius:var(--radius-sm)" alt="' + p.filename + '" />' +
+          // Thumbnail grid
+          '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:12px;justify-content:center">' +
+            previews.map(function(thumb, i) {
+              return '<img src="' + thumb.base64 + '" class="thumb-' + i + '" style="width:80px;height:60px;object-fit:cover;border-radius:4px;cursor:pointer;border:2px solid ' + (i === currentIndex ? 'var(--color-primary)' : 'var(--border-default)') + '" title="' + thumb.filename + '" />';
+            }).join('') +
+          '</div>' +
+        '</div>';
+    }
+
+    function close() {
+      if (overlay.parentNode) overlay.remove();
+      document.removeEventListener('keydown', keyHandler);
+    }
+
+    function navigate(delta) {
+      var next = currentIndex + delta;
+      if (next >= 0 && next < total) {
+        currentIndex = next;
+        renderView();
+        wireButtons();
+      }
+    }
+
+    function wireButtons() {
+      modal.querySelector('.close-preview').addEventListener('click', close);
+      modal.querySelector('.prev-btn').addEventListener('click', function() { navigate(-1); });
+      modal.querySelector('.next-btn').addEventListener('click', function() { navigate(1); });
+      // Thumbnail clicks
+      for (var i = 0; i < total; i++) {
+        (function(idx) {
+          var thumb = modal.querySelector('.thumb-' + idx);
+          if (thumb) thumb.addEventListener('click', function() {
+            currentIndex = idx;
+            renderView();
+            wireButtons();
+          });
+        })(i);
+      }
+    }
+
+    var keyHandler = function(e) {
+      if (e.key === 'Escape') close();
+      if (e.key === 'ArrowLeft') navigate(-1);
+      if (e.key === 'ArrowRight') navigate(1);
+    };
+    document.addEventListener('keydown', keyHandler);
+
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) close();
+    });
+
+    renderView();
+    wireButtons();
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+  }
 
   function readFormConfig(formView) {
     var getVal = function(sel) {

@@ -90,6 +90,37 @@
       });
     },
 
+    /* ── Dataset Preview ── */
+    previewDataset: function(path) {
+      if (!HAS_TAURI) { return Promise.resolve({ previews: [] }); }
+
+      return new Promise(function(resolve, reject) {
+        var unlistens = [];
+        var done = false;
+        function finish(err, data) {
+          if (done) return; done = true;
+          unlistens.forEach(function(fn) { try { fn(); } catch(e) {} });
+          if (err) reject(err); else resolve(data);
+        }
+
+        Promise.all([
+          tauriListen('python:line', function(payload) {
+            var code = payload.code || '';
+            if (code === 'P-001') {
+              finish(null, { previews: payload.previews || [], count: payload.count || 0 });
+            }
+          }),
+          tauriListen('python:completed', function() {}),
+          tauriListen('python:error', function(payload) {
+            finish(new Error('预览生成失败 (exit ' + (payload && payload.exit_code) + ')'));
+          })
+        ]).then(function(fns) {
+          unlistens = fns.filter(Boolean);
+          return tauriInvoke('preview_dataset', { path: path });
+        }).catch(function(err) { finish(err); });
+      });
+    },
+
     checkDataset: function(path) {
       if (!HAS_TAURI) { return delay(800).then(function() { return MOCK_DATASET; }); }
 
