@@ -93,22 +93,20 @@ def draw_boxes(image: np.ndarray, label_path: Path, class_names: list) -> np.nda
     return image
 
 
-def resize_preview(image: np.ndarray, max_width: int = 400) -> np.ndarray:
-    """Resize image to a reasonable preview size."""
+def resize_preview(image: np.ndarray, max_width: int = 240) -> np.ndarray:
+    """Resize image to thumbnail size for IPC-friendly base64 encoding."""
     h, w = image.shape[:2]
     if w > max_width:
         ratio = max_width / w
-        new_w = max_width
-        new_h = int(h * ratio)
-        image = cv2.resize(image, (new_w, new_h))
+        image = cv2.resize(image, (max_width, int(h * ratio)))
     return image
 
 
-def save_preview(image: np.ndarray, output_dir: Path, filename: str) -> str:
-    """Save a preview image to disk, return the file path."""
-    out_path = output_dir / filename
-    cv2.imwrite(str(out_path), image, [cv2.IMWRITE_JPEG_QUALITY, 80])
-    return str(out_path)
+def encode_thumbnail(image: np.ndarray) -> str:
+    """Encode a small preview image as base64 data URL."""
+    _, buffer = cv2.imencode(".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, 50])
+    import base64
+    return "data:image/jpeg;base64," + base64.b64encode(buffer).decode("utf-8")
 
 
 def generate_previews(dataset_path: str, max_count: int) -> list:
@@ -133,10 +131,6 @@ def generate_previews(dataset_path: str, max_count: int) -> list:
         if f.suffix.lower() in {".jpg", ".jpeg", ".png", ".bmp"}
     ])[:max_count]
 
-    # Create preview output directory
-    preview_dir = root / ".preview"
-    preview_dir.mkdir(exist_ok=True)
-
     results = []
     for img_file in img_files:
         lbl_file = lbl_dir / (img_file.stem + ".txt")
@@ -145,8 +139,7 @@ def generate_previews(dataset_path: str, max_count: int) -> list:
             continue
         image = draw_boxes(image, lbl_file, class_names)
         image = resize_preview(image)
-        out_name = f"preview_{img_file.name}"
-        file_path = save_preview(image, preview_dir, out_name)
+        thumb = encode_thumbnail(image)
 
         det_count = 0
         if lbl_file.exists():
@@ -171,7 +164,7 @@ def generate_previews(dataset_path: str, max_count: int) -> list:
 
         results.append({
             "filename": img_file.name,
-            "preview_path": file_path,
+            "thumb": thumb,
             "detection_count": det_count,
             "classes": sorted(cls_in_image),
         })

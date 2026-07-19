@@ -570,13 +570,21 @@
 
   function toAssetUrl(path) {
     if (!path) return '';
-    // If already a data URL or http URL, return as-is
     if (path.startsWith('data:') || path.startsWith('http')) return path;
-    // Use Tauri's convertFileSrc if available
-    if (window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.convertFileSrc) {
-      try { return window.__TAURI_INTERNALS__.convertFileSrc(path, 'asset'); } catch(e) {}
+    // Tauri 2.x: convert Windows path to loadable URL
+    if (window.__TAURI_INTERNALS__) {
+      // Method 1: official convertFileSrc
+      if (window.__TAURI_INTERNALS__.convertFileSrc) {
+        try {
+          var url = window.__TAURI_INTERNALS__.convertFileSrc(path);
+          if (url) return url;
+        } catch(e) {}
+      }
+      // Method 2: manual asset protocol
+      var normalized = path.replace(/\\/g, '/');
+      if (!normalized.startsWith('/')) normalized = '/' + normalized;
+      return 'https://asset.localhost' + normalized;
     }
-    // Fallback: return path directly (works in some Tauri configs)
     return path;
   }
 
@@ -612,11 +620,11 @@
             '<button class="btn btn--ghost btn--sm next-btn" ' + (currentIndex === total - 1 ? 'disabled' : '') + '>下一张 ▶</button>' +
           '</div>' +
           // Main image
-          '<img src="' + toAssetUrl(p.preview_path || p.base64) + '" style="max-width:100%;max-height:55vh;border-radius:var(--radius-sm)" alt="' + p.filename + '" />' +
+          '<img src="' + (p.thumb || '') + '" style="max-width:100%;max-height:55vh;border-radius:var(--radius-sm)" alt="' + p.filename + '" />' +
           // Thumbnail grid
           '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:12px;justify-content:center">' +
             previews.map(function(thumb, i) {
-              return '<img src="' + toAssetUrl(thumb.preview_path || thumb.base64) + '" class="thumb-' + i + '" style="width:80px;height:60px;object-fit:cover;border-radius:4px;cursor:pointer;border:2px solid ' + (i === currentIndex ? 'var(--color-primary)' : 'var(--border-default)') + '" title="' + thumb.filename + '" />';
+              return '<img src="' + (thumb.thumb || '') + '" class="thumb-' + i + '" style="width:80px;height:60px;object-fit:cover;border-radius:4px;cursor:pointer;border:2px solid ' + (i === currentIndex ? 'var(--color-primary)' : 'var(--border-default)') + '" title="' + thumb.filename + '" />';
             }).join('') +
           '</div>' +
         '</div>';
