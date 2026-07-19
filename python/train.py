@@ -21,6 +21,17 @@ _control_file = None       # path to control signal file
 _control_mtime = 0         # last modification time we processed
 
 
+def _cleanup_control_file():
+    """Remove the control signal file after training exits."""
+    global _control_file
+    if _control_file:
+        try:
+            os.remove(_control_file)
+        except OSError:
+            pass
+        _control_file = None
+
+
 def _check_control_file():
     """Check if a new control command was written to the signal file."""
     global _control_mtime
@@ -133,6 +144,7 @@ def on_train_epoch_end(trainer):
     cmd = _check_control_file()
     if cmd == "stop":
         emit("T-207", epoch=epoch, message=f"训练已停止于 epoch {epoch}")
+        _cleanup_control_file()
         sys.exit(2)  # exit code 2 = user-stopped, distinct from 0=success 1=error
     elif cmd == "pause":
         # Pause: skip further epoch processing but let Ultralytics continue loop
@@ -339,11 +351,13 @@ def main():
 
     try:
         result = run_training(args)
+        _cleanup_control_file()
         sys.exit(0)
     except SystemExit as e:
         sys.exit(e.code)
     except Exception as e:
         emit("T-105E", message=f"训练异常: {e}")
+        _cleanup_control_file()
         sys.exit(-1)
 
 
