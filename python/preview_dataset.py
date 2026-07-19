@@ -8,9 +8,6 @@ Usage: python preview_dataset.py --dataset-path <path> [--max-count 20]
 import sys
 import os
 import argparse
-import json
-import base64
-import io
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -96,11 +93,22 @@ def draw_boxes(image: np.ndarray, label_path: Path, class_names: list) -> np.nda
     return image
 
 
-def encode_base64(image: np.ndarray) -> str:
-    """Encode an OpenCV image as a base64 JPEG data URL."""
-    _, buffer = cv2.imencode(".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, 85])
-    b64 = base64.b64encode(buffer).decode("utf-8")
-    return f"data:image/jpeg;base64,{b64}"
+def resize_preview(image: np.ndarray, max_width: int = 400) -> np.ndarray:
+    """Resize image to a reasonable preview size."""
+    h, w = image.shape[:2]
+    if w > max_width:
+        ratio = max_width / w
+        new_w = max_width
+        new_h = int(h * ratio)
+        image = cv2.resize(image, (new_w, new_h))
+    return image
+
+
+def save_preview(image: np.ndarray, output_dir: Path, filename: str) -> str:
+    """Save a preview image to disk, return the file path."""
+    out_path = output_dir / filename
+    cv2.imwrite(str(out_path), image, [cv2.IMWRITE_JPEG_QUALITY, 80])
+    return str(out_path)
 
 
 def generate_previews(dataset_path: str, max_count: int) -> list:
@@ -125,6 +133,10 @@ def generate_previews(dataset_path: str, max_count: int) -> list:
         if f.suffix.lower() in {".jpg", ".jpeg", ".png", ".bmp"}
     ])[:max_count]
 
+    # Create preview output directory
+    preview_dir = root / ".preview"
+    preview_dir.mkdir(exist_ok=True)
+
     results = []
     for img_file in img_files:
         lbl_file = lbl_dir / (img_file.stem + ".txt")
@@ -132,9 +144,10 @@ def generate_previews(dataset_path: str, max_count: int) -> list:
         if image is None:
             continue
         image = draw_boxes(image, lbl_file, class_names)
-        b64 = encode_base64(image)
+        image = resize_preview(image)
+        out_name = f"preview_{img_file.name}"
+        file_path = save_preview(image, preview_dir, out_name)
 
-        # Count detections in label file
         det_count = 0
         if lbl_file.exists():
             try:
@@ -158,7 +171,7 @@ def generate_previews(dataset_path: str, max_count: int) -> list:
 
         results.append({
             "filename": img_file.name,
-            "base64": b64,
+            "preview_path": file_path,
             "detection_count": det_count,
             "classes": sorted(cls_in_image),
         })
