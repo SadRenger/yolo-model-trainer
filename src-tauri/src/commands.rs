@@ -181,6 +181,11 @@ pub fn start_training(
         }
     }
 
+    // File-based control signal (replaces stdin pipe)
+    let control_file = format!("output/.control_{}", task_id);
+    args.push("--control-file".into());
+    args.push(control_file.clone());
+
     state.process_manager.spawn_python(
         &task_id,
         "train.py",
@@ -192,28 +197,34 @@ pub fn start_training(
     Ok(task_id)
 }
 
+/// Write a control command to the training process's signal file.
+fn write_control_signal(task_id: &str, command: &str) -> Result<(), String> {
+    let control_file = format!("output/.control_{}", task_id);
+    std::fs::create_dir_all("output").map_err(|e| format!("Cannot create output dir: {}", e))?;
+    std::fs::write(&control_file, format!("{}\n", command))
+        .map_err(|e| format!("Cannot write control file: {}", e))?;
+    Ok(())
+}
+
 #[tauri::command]
 pub fn pause_training(
     task_id: String,
-    state: State<'_, AppState>,
 ) -> Result<(), String> {
-    state.process_manager.send_command(&task_id, "pause")
+    write_control_signal(&task_id, "pause")
 }
 
 #[tauri::command]
 pub fn resume_training(
     task_id: String,
-    state: State<'_, AppState>,
 ) -> Result<(), String> {
-    state.process_manager.send_command(&task_id, "resume")
+    write_control_signal(&task_id, "resume")
 }
 
 #[tauri::command]
 pub fn stop_training(
     task_id: String,
-    state: State<'_, AppState>,
 ) -> Result<(), String> {
-    state.process_manager.send_command(&task_id, "stop")
+    write_control_signal(&task_id, "stop")
 }
 
 /* ═══════════════════════════════════════════════

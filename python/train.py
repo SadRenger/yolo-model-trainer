@@ -19,11 +19,28 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from engine.protocol import emit
 
-# ── Globals for stdin control ──
-_control_command = None  # "pause" | "resume" | "stop"
-_control_lock = threading.Lock()
+# ── Globals for file-based control ──
+_control_file = None       # path to control signal file
+_control_mtime = 0         # last modification time we processed
 _train_paused = threading.Event()
 _train_stopped = threading.Event()
+
+
+def _check_control_file():
+    """Check if a new control command was written to the signal file."""
+    global _control_mtime
+    if not _control_file:
+        return None
+    try:
+        mtime = os.path.getmtime(_control_file)
+        if mtime <= _control_mtime:
+            return None
+        _control_mtime = mtime
+        with open(_control_file, "r") as f:
+            cmd = f.read().strip().lower()
+        return cmd if cmd in ("pause", "resume", "stop") else None
+    except OSError:
+        return None
 
 
 def parse_args():
@@ -52,6 +69,7 @@ def parse_args():
     parser.add_argument("--fliplr", type=float, default=0.5)
     # Internal
     parser.add_argument("--close-mosaic", type=int, default=10)  # epochs before end to disable mosaic
+    parser.add_argument("--control-file", default="")  # file-based control signal (replaces stdin)
     return parser.parse_args()
 
 
@@ -116,12 +134,8 @@ def on_train_epoch_end(trainer):
     elif pct >= 0.75 and epoch - 1 < total * 0.75:
         emit("T-107", milestone="75%", epoch=epoch, total_epochs=total)
 
-    # Check control commands
-    global _control_command
-    with _control_lock:
-        cmd = _control_command
-        _control_command = None
-
+    # Check control file signal (replaces stdin pipe)
+    cmd = _check_control_file()
     if cmd == "pause":
         emit("T-202", message="当前 epoch 完成后暂停")
         emit("T-203", epoch=epoch, message=f"训练已暂停于 epoch {epoch}")
@@ -134,8 +148,11 @@ def on_train_epoch_end(trainer):
 
 
 def run_training(args) -> dict:
+    global _control_file, _control_mtime
     task_name = args.task_name or f"train_{time.strftime('%Y%m%d_%H%M%S')}"
     output_dir = Path(args.output_dir) / task_name
+    _control_file = args.control_file or None
+    _control_mtime = 0
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Emit progress during slow imports (torch + ultralytics take 10-20s first time)
