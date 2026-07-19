@@ -179,7 +179,6 @@
               App.tauri.invoke('stop_training', { taskId: _trainingCache.taskId }).catch(function(){});
             }
             resetToForm(page, formView, trainingView, completeView);
-            App.bus.dispatchEvent(new CustomEvent(App.EVENTS.SIDEBAR_STATUS, { detail: { status: 'ready' } }));
           }
         });
       });
@@ -189,7 +188,6 @@
       if (simBtn) {
         simBtn.addEventListener('click', function() {
           showCompleteState(page, formView, trainingView, completeView);
-          App.bus.dispatchEvent(new CustomEvent(App.EVENTS.SIDEBAR_STATUS, { detail: { status: 'ready' } }));
         });
       }
 
@@ -770,16 +768,10 @@
           detail: { type: 'info', title: '训练进度', message: '达到 100% — 训练即将完成' }
         }));
         setTimeout(function() {
-          _trainingCache.state = 'complete';
           var pg = trainingView.parentElement;
-          if (pg) {
-            var fv = pg.querySelector('.page-form-view');
-            var cv = pg.querySelector('.page-complete-view');
-            if (fv) fv.style.display = 'none';
-            trainingView.style.display = 'none';
-            if (cv) cv.style.display = '';
-          }
-          App.bus.dispatchEvent(new CustomEvent(App.EVENTS.SIDEBAR_STATUS, { detail: { status: 'ready' } }));
+          var cv = pg ? pg.querySelector('.page-complete-view') : null;
+          var fv = pg ? pg.querySelector('.page-form-view') : null;
+          showCompleteState(pg, fv, trainingView, cv);
           App.bus.dispatchEvent(new CustomEvent(App.EVENTS.TOAST_SHOW, {
             detail: { type: 'success', title: '训练完成！', message: 'mAP50: 0.876 · 历时 2h 34m' }
           }));
