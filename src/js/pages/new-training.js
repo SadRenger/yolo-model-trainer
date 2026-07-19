@@ -99,8 +99,6 @@
           if (typeof payload === 'string') { try { payload = JSON.parse(payload); } catch(_) {} }
           if (payload && payload.exit_code === 0) {
             showCompleteState(page, formView, trainingView, completeView);
-            _trainingCache.state = 'complete';
-            App.bus.dispatchEvent(new CustomEvent(App.EVENTS.SIDEBAR_STATUS, { detail: { status: 'ready' } }));
             App.bus.dispatchEvent(new CustomEvent(App.EVENTS.TOAST_SHOW, {
               detail: { type: 'success', title: '训练完成！', message: '查看结果摘要' }
             }));
@@ -110,7 +108,6 @@
         // Process stopped by user
         App.tauri.listen('train:stopped', function(event) {
           resetToForm(page, formView, trainingView, completeView);
-          App.bus.dispatchEvent(new CustomEvent(App.EVENTS.SIDEBAR_STATUS, { detail: { status: 'ready' } }));
         }).then(function(fn) { _trainUnlistens.push(fn); });
 
         // Process error/crash
@@ -118,7 +115,6 @@
           var payload = event.payload;
           if (typeof payload === 'string') { try { payload = JSON.parse(payload); } catch(_) {} }
           resetToForm(page, formView, trainingView, completeView);
-          App.bus.dispatchEvent(new CustomEvent(App.EVENTS.SIDEBAR_STATUS, { detail: { status: 'ready' } }));
           App.bus.dispatchEvent(new CustomEvent(App.EVENTS.TOAST_SHOW, {
             detail: { type: 'error', title: '训练异常退出', message: 'exit code: ' + ((payload && payload.exit_code) || '?') }
           }));
